@@ -1,0 +1,17 @@
+# mkinitfs preset file for the 'kernel' package
+
+#ALL_config="/etc/mkinitcpio.conf"
+ALL_kver="/path/to/kernel"
+ALL_microcode=(/path/to/microcodes)
+
+PRESETS=('default' 'fallback')
+
+#default_config="/etc/mkinitcpio.conf"
+default_image="/path/to/initramfs"
+#default_uki="/efi/path/to/kernel.efi"
+#default_options=""
+
+#fallback_config="/etc/mkinitcpio.conf"
+fallback_image="/path/to/initramfs-fallback"
+#fallback_uki="/efi/path/to/kernel.efi"
+fallback_options="-S autodetect"

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# This script loads all files in /gearload folder
+
+for file in /gearload/*; do
+  echo $file is being loaded
+done

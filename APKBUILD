@@ -1,0 +1,32 @@
+# Maintainer: Shadichy <shadichy.dev@gmail.com>
+pkgname=gearlock
+pkgver=0.0.1
+# shellcheck disable=SC2034 # used for git versions, keep around for next time
+_ver=${pkgver%_git*}
+pkgrel=2
+pkgdesc="GearLock recovery project for Android on PC"
+url="https://github.com/Yuunix-Team/gearlock-core"
+arch="all"
+license="GPL-2.0-only"
+# currently we do not ship any testsuite
+options="!check"
+makedepends_host="bash busybox"
+makedepends="$makedepends_host"
+depends="
+	busybox-binsh
+	busybox>=1.28.2-r1
+	bash
+	"
+subpackages="$pkgname-doc"
+install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
+
+provides="gearlock"
+provider_priority=900 # highest
+
+build() {
+  make VERSION=$pkgver-r$pkgrel
+}
+
+package() {
+  make install DESTDIR="$pkgdir"
+}
