@@ -22,7 +22,9 @@ if grep -owq 'lm' /proc/cpuinfo; then
 fi
 
 if command -v su; then
-	if [ -e "/sbin/magisk" ]; then
+	if grep -q ksu /system/lib/modules/"$(uname -r)"/modules.builtin; then
+		suHandler="KernelSU"
+	elif [ -e "/sbin/magisk" ]; then
 		suHandler="Magisk"
 	else
 		suHandler="SuperSU"
@@ -33,8 +35,8 @@ echo "
 {
 	\"gearlock\": {
 		\"version\": \"$(gearlock -v)\",
-		\"gearboot\": \"$(gearboot -v)\",
-		\"gearprop\": \"$(gearprop -v)\"
+		\"gxp\": \"$(gxp -v)\",
+		\"cli\": \"$(gearlock-cli -v)\"
 	},
 	\"android\": {
 		\"release\": \"$(getprop ro.build.version.release)\",
@@ -50,7 +52,13 @@ echo "
 	echo "$provider"
 )\",
 		$([ "$processor" = "x86" ] && [ -d /system/lib/arm ] && echo "\"armLayer\": \"On\",")
-		\"mac\": \"$(ip link | grep "link/ether" | awk '{print $2}' | xargs | sed 's/ /, /g')\"
+		\"mac\": \"$(
+	ip link |
+		grep "link/ether" |
+		awk '{print $2}' |
+		xargs |
+		sed 's/ /, /g'
+)\"
 	},"
 
 if [ "$BOOTED" = "1" ]; then

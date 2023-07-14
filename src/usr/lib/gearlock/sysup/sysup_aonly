@@ -1,0 +1,41 @@
+#!/bin/bash
+
+die() { echo "$*" && exit 1; }
+
+NEWIMG=$1
+NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
+shift
+
+checkspace() {
+  ((NEWIMGSIZE > FREESPACE)) &&
+    die "Not enough space to update system image"
+}
+
+set -- $(cat /proc/cmdline)
+for arg in "$@"; do case "$arg" in SYSTEM=*) SYSTEM="${arg#*=}" ;; esac done
+
+case "$SYSTEM" in
+/dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+  SYSTEM=$(resolve_device "$SYSTEM")
+  FREESPACE=$(($(lsblk -dnbo SIZE "$SYSTEM") / 1024))
+  checkspace
+
+  if [ "$BOOTED" ]; then
+    die "Cannot live replace system image"
+  else
+    dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
+  fi
+  ;;
+*)
+  SYSTEM=$SRCDIR/$SYSTEM
+  FREESPACE=$(/usr/lib/gearlock/checkfree)
+  checkspace
+
+  if [ "$BOOTED" ]; then
+    mv -r "$SYSTEM" "$SYSTEM-pending_remove"
+  else
+    rm -rf "$SYSTEM"
+  fi
+  mv "$NEWIMG" "$SYSTEM"
+  ;;
+esac

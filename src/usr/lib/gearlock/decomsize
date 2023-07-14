@@ -14,6 +14,7 @@ get_bsize() {
   *.tar) du -b "$1" | awk '{print $1}' ;;
   *.zip) unzip -Zt "$1" | awk '{ print $3 }' ;;
   esac
+  [ $? = 0 ] || exit 1
 }
 
 echo $(($(get_bsize "$1") / 1024))

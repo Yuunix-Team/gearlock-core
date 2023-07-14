@@ -1,0 +1,8 @@
+#!/bin/sh
+
+. /etc/gearlock.conf
+
+export SRCDIR
+export LOG
+
+bash $@

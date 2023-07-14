@@ -1,13 +1,20 @@
 #!/bin/bash
 
-. /etc/gearlock.conf
-
-OLD_MODE=$(/usr/lib/gearlock/abswitch/current)
+OLD_MODE=$(/usr/lib/gearlock/sysup/checkab)
 MODE=
 
 die() { echo "==> ERROR: $*" && exit 1; }
 
-[ "$2" ] && die "Invalid argument $*. Only ONE argument --ab or --aonly is allowed"
+set -- $(cat /proc/cmdline)
+for arg in "$@"; do case "$arg" in SYSTEM=*) SYSTEM="${arg#*=}" ;; esac done
+
+case "$SYSTEM" in
+/dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+  die "This script does not work on partition based system"
+  ;;
+esac
+
+[ "$2" ] && die "Invalid argument '$*'. Only ONE argument --ab or --aonly is allowed"
 
 case $1 in
 -a | --aonly) : aonly ;;
@@ -16,22 +23,30 @@ case $1 in
 esac
 MODE=$_
 
-[ "$MODE" = "$OLD_MODE" ] && die "Your current system has already been $MODE"
+[ "$MODE" = "$OLD_MODE" ] && [ "$MODE" = aonly ] &&
+  die "Your current system has already been '$MODE'"
 
 SYSTEM=
 COMP=
-
-set -- $(cat /proc/cmdline)
-for arg in "$@"; do case "$arg" in SYSTEM=*) SYSTEM="${arg#SYSTEM=}" ;; esac done
 
 case "$SYSTEM" in *.?fs | .img) COMP=".${SYSTEM##*.}" ;; esac
 
 case "$MODE" in
 ab)
-  mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system_a$COMP"
+  if [ "$OLD_MODE" = ab ]; then
+    to() { mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/${SYSTEM//_$1/_$2}"; }
+    if echo "$SYSTEM" | grep -E '_a(\.(img|[se]fs))?$'; then
+      to a b
+    else
+      to b a
+    fi
+  else
+    mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system_a$COMP"
+  fi
   ;;
 aonly)
-  mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP"
+  mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
   rm -rf "$SRCDIR"/system_*
   ;;
 esac
+[ $? = 0 ] || die "Failed to switch '$MODE'"

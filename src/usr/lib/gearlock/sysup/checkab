@@ -1,7 +1,5 @@
 #!/bin/bash
 
-. /etc/gearlock.conf
-
 if ls "$SRCDIR"/system_* | grep -E '_[ab](\.(img|[se]fs))?$'; then
   echo ab
 else

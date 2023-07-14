@@ -28,4 +28,4 @@ chroot_setup() {
 
 chroot_setup "$chrootdir" || die "Failed to setup chroot %s" "$chrootdir"
 
-SHELL=/bin/bash chroot "$chrootdir" $@
+SHELL=/bin/sh chroot "$chrootdir" /bin/gshell -c "$*"
