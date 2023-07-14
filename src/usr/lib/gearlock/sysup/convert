@@ -1,0 +1,61 @@
+#!/bin/bash
+
+die() { echo "$*" && exit 1; }
+
+NEWIMG=$1
+
+# check space first
+
+COMP=dir
+
+case "$NEWIMG" in *.?fs | .img) COMP="${NEWIMG##*.}" ;; esac
+
+[ "$COMP" = "$SYSTEM_TYPE" ] && exit
+
+loop_mount() {
+  echo "$1"
+}
+
+packed_to_img() {
+  # loop mount, then copy
+  echo
+}
+
+img_to_dir() {
+  # loop mount, then rsync
+  echo
+}
+
+dir_to_img() {
+  # create img with the same size, then loop mount and rsync
+  echo
+}
+
+img_to_sfs() {
+  # mksquashfs
+  echo
+}
+
+img_to_efs() {
+  # mkfs.erofs
+  echo
+}
+
+case "$SYSTEM_TYPE" in
+dir) case "$COMP" in
+  img) img_to_dir ;;
+  ?fs) packed_to_img && img_to_dir ;;
+  esac ;;
+img) case "$COMP" in
+  dir) dir_to_img ;;
+  ?fs) packed_to_img ;;
+  esac ;;
+sfs) case "$COMP" in
+  dir) dir_to_img && img_to_sfs ;;
+  img) img_to_sfs ;;
+  esac ;;
+efs) case "$COMP" in
+  dir) dir_to_img && img_to_efs ;;
+  img) img_to_efs ;;
+  esac ;;
+esac

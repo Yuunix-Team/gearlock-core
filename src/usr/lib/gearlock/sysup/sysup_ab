@@ -1,1 +1,20 @@
 #!/bin/bash
+
+die() { echo "$*" && exit 1; }
+
+NEWIMG=$1
+NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
+shift
+
+other() { THE_OTHER=${SYSTEM//_$1/_$2}; }
+
+echo "$SYSTEM" | grep -E '_a(\.(img|[se]fs))?$' && other a b || other b a
+
+[ "$THE_OTHER" ] && rm -rf "$SRCDIR/$THE_OTHER"
+
+FREESPACE=$(/usr/lib/gearlock/checkfree)
+
+((NEWIMGSIZE > FREESPACE)) &&
+  die "Not enough space to update system image"
+
+mv "$NEWIMG" "$SRCDIR/$THE_OTHER"

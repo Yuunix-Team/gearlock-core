@@ -2,7 +2,37 @@
 
 . /etc/gearlock.conf
 
+export PATH="/bin/:/system/bin:/system/xbin"
+
 export SRCDIR
 export LOG
+export SYSTEM_TYPE
+
+SYSTEM=system.img
+DATA=data.img
+
+set -- $(cat /proc/cmdline)
+for arg in "$@"; do
+  case "$arg" in
+  ROOT=*) ROOT="${arg#*=}" ;;
+  SRC=*) SRC="${arg#*=}" ;;
+  SYSTEM=*) SYSTEM="${arg#*=}" ;;
+  DATA=*) DATA="${arg#*=}" ;;
+  esac
+done
+
+case "$ROOT" in
+LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) ROOT=$(resolve_device "$ROOT") ;;
+esac
+
+case "$SYSTEM" in
+LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) SYSTEM=$(resolve_device "$SYSTEM") ;;
+esac
+
+case "$DATA" in
+LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) DATA=$(resolve_device "$DATA") ;;
+esac
+
+export ROOT SRC SYSTEM DATA
 
 bash $@

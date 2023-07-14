@@ -5,13 +5,8 @@ MODE=
 
 die() { echo "==> ERROR: $*" && exit 1; }
 
-set -- $(cat /proc/cmdline)
-for arg in "$@"; do case "$arg" in SYSTEM=*) SYSTEM="${arg#*=}" ;; esac done
-
 case "$SYSTEM" in
-/dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
-  die "This script does not work on partition based system"
-  ;;
+/dev/*) die "This script does not work on partition based system" ;;
 esac
 
 [ "$2" ] && die "Invalid argument '$*'. Only ONE argument --ab or --aonly is allowed"
@@ -46,7 +41,7 @@ ab)
   ;;
 aonly)
   mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
-  rm -rf "$SRCDIR"/system_*
+    rm -rf "$SRCDIR"/system_*
   ;;
 esac
 [ $? = 0 ] || die "Failed to switch '$MODE'"

@@ -11,11 +11,8 @@ checkspace() {
     die "Not enough space to update system image"
 }
 
-set -- $(cat /proc/cmdline)
-for arg in "$@"; do case "$arg" in SYSTEM=*) SYSTEM="${arg#*=}" ;; esac done
-
 case "$SYSTEM" in
-/dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+/dev/*)
   SYSTEM=$(resolve_device "$SYSTEM")
   FREESPACE=$(($(lsblk -dnbo SIZE "$SYSTEM") / 1024))
   checkspace

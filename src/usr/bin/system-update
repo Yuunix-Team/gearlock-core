@@ -30,8 +30,11 @@ else
   [ "$confirm" = y ] || exit
 fi
 
-/usr/lib/gearlock/sysup/reinstall_patch "$SYSIMAGE" || die "Failed to patch new system image"
+/usr/lib/gearlock/sysup/convert "$SYSIMAGE" ||
+  die "Not enough space to extract/compress '$SYSIMAGE'"
+
+/usr/lib/gearlock/sysup/reinstall_patch "$SYSIMAGE" ||
+  die "Failed to patch '$SYSIMAGE'"
 
 SYSUP_STATUS=$(/usr/lib/gearlock/sysup/"sysup_$MODE" "$SYSIMAGE")
 [ $? = 0 ] || die "$SYSUP_STATUS"
-
