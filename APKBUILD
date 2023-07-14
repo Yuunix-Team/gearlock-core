@@ -16,6 +16,7 @@ depends="
 	busybox-binsh
 	busybox>=1.28.2-r1
 	bash
+	gnupg
 	"
 subpackages="$pkgname-doc"
 install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"

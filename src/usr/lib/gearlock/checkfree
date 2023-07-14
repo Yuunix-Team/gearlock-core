@@ -1,1 +1,3 @@
 #!/bin/bash
+
+df -k --sync --output=avail /gearroot

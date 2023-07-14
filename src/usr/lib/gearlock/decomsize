@@ -1,1 +1,19 @@
 #!/bin/bash
+
+get_bsize() {
+  case "${1}" in
+  *.tgz | *.gz) gzip -l "$1" | tail -1 | awk '{print $2}' ;;
+  *.tlz | *.lz) lzip -l "$1" | tail -1 | awk '{print $1}' ;;
+  *.t7z | *.7z) 7z l "$1" | tail -1 | awk '{print $3}' ;;
+  *.txz | *.xz) xzcat "$1" | wc -c ;;
+  *.lzma) lzcat "$1" | wc -c ;;
+  *.bz2) bzcat "$1" | wc -c ;;
+  *.lz4) lz4cat "$1" | wc -c ;;
+  *.zst) zstdcat "$1" | wc -c ;;
+  *.lzo) lzop -l "$1" | tail -1 | awk '{ print $3 }' ;;
+  *.tar) du -b "$1" | awk '{print $1}' ;;
+  *.zip) unzip -Zt "$1" | awk '{ print $3 }' ;;
+  esac
+}
+
+echo $(($(get_bsize "$1") / 1024))

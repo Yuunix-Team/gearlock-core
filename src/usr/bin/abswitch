@@ -2,14 +2,8 @@
 
 . /etc/gearlock.conf
 
-OLD_MODE=
+OLD_MODE=$(/usr/lib/gearlock/abswitch/current)
 MODE=
-
-if ls "$SRCDIR"/system_* | grep -E '_[ab](\.(img|[se]fs))?$'; then
-  OLD_MODE=ab
-else
-  OLD_MODE=aonly
-fi
 
 die() { echo "==> ERROR: $*" && exit 1; }
 
@@ -22,7 +16,7 @@ case $1 in
 esac
 MODE=$_
 
-[ "$MODE" = $OLD_MODE ] && die "Your current system has already been $MODE"
+[ "$MODE" = "$OLD_MODE" ] && die "Your current system has already been $MODE"
 
 SYSTEM=
 COMP=
