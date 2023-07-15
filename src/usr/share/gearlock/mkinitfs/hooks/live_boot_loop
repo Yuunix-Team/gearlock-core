@@ -1,1 +1,10 @@
 #!/bin/sh
+
+live_loop_mount_handler() {
+	# 
+	live_mount_handler "$1"
+}
+
+run_hook() {
+	[ "$loop_img" ] && export mount_handler="live_loop_mount_handler"
+}

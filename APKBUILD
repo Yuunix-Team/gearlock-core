@@ -17,17 +17,20 @@ depends="
 	busybox>=1.28.2-r1
 	bash
 	gnupg
+	kmod
+	lddtree>=1.25
+	mdev-conf
 	"
 subpackages="$pkgname-doc"
 install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
 
-provides="gearlock"
+provides="gearlock initramfs-generator mkinitfs"
 provider_priority=900 # highest
 
 build() {
-  make VERSION=$pkgver-r$pkgrel
+	make VERSION=$pkgver-r$pkgrel
 }
 
 package() {
-  make install DESTDIR="$pkgdir"
+	make install DESTDIR="$pkgdir"
 }

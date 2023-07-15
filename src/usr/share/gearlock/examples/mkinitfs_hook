@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# runs before anything
+run_earlyhook() {
+  export
+}
+
+# runs after mounting root
+run_hook() {
+  export
+}
+
+# runs after everything, except switch root
+run_latehook() {
+  export
+}

@@ -1,0 +1,468 @@
+#!/bin/sh
+
+# some helpers
+# ebegin() {
+# 	last_emsg="$*"
+# 	echo "$last_emsg..." >/tmp/log
+# 	[ "$quiet" = yes ] && return 0
+# 	echo -n " * $last_emsg: "
+# }
+
+# eend() {
+# 	if [ "$1" = 0 ] || [ $# -lt 1 ]; then
+# 		echo "$last_emsg: ok." >/tmp/log
+# 		[ "$quiet" = yes ] && return 0
+# 		echo "ok."
+# 	else
+# 		shift
+# 		echo "$last_emsg: failed. $*" >/tmp/log
+# 		if [ "$quiet" = "yes" ]; then
+# 			echo -n "$last_emsg "
+# 		fi
+# 		echo "failed. $*"
+# 		echo "initramfs emergency recovery shell launched. Type 'exit' to continue boot"
+# 		/bin/busybox sh
+# 	fi
+# }
+
+# find mount dir for given device in an fstab
+# returns global MNTOPTS
+find_mnt() {
+	local dev="$1"
+	case "$dev" in
+	UUID=* | LABEL=*) dev=$(findfs "$dev") ;;
+	# ZFS=*)
+	# 	ROOTFSTYPE=zfs
+	# 	modprobe -a zfs
+	# 	prepare_zfs_root
+	# 	dev=${ROOT#ZFS=}
+	# 	;;
+	esac
+	echo "$dev"
+}
+
+# determine the default interface to use if ip=dhcp is set
+# uses the first "eth" interface with operstate 'up'.
+# ip_choose_if() {
+# 	if [ "$BOOTIF" ]; then
+# 		mac=$(printf "%s\n" "$BOOTIF" | sed 's/^01-//;s/-/:/g')
+# 		dev=$(grep -l "$mac" /sys/class/net/*/address | head -n 1)
+# 		dev=${dev%/*}
+# 		[ "$dev" ] && echo "${dev##*/}" && return
+# 	fi
+# 	for x in /sys/class/net/eth*; do
+# 		if grep -iq up "$x"/operstate; then
+# 			[ -e "$x" ] && echo "${x##*/}" && return
+# 		fi
+# 	done
+# 	[ -e "$x" ] && echo "${x##*/}" && return
+# }
+
+# if "ip=dhcp" is specified on the command line, we obtain an IP address
+# using udhcpc. we do this now and not by enabling kernel-mode DHCP because
+# kernel-model DHCP appears to require that network drivers be built into
+# the kernel rather than as modules. At this point all applicable modules
+# in the initrd should have been loaded.
+#
+# You need af_packet.ko available as well modules for your Ethernet card.
+#
+# See https://www.kernel.org/doc/Documentation/filesystems/nfs/nfsroot.txt
+# for documentation on the format.
+#
+# Valid syntaxes:
+#   ip=client-ip:server-ip:gw-ip:netmask:hostname:device:autoconf:
+#     :dns0-ip:dns1-ip:ntp0-ip
+#   ip=dhcp
+#   "server-ip", "hostname" and "ntp0-ip" are not supported here.
+# Default (when configure_ip is called without setting ip=):
+#   ip=dhcp
+#
+# configure_ip() {
+# 	[ "$MAC_ADDRESS" ] && return
+
+# 	local IFS=':'
+# 	set -- "${ip:-dhcp}"
+# 	unset IFS
+
+# 	local client_ip="$1"
+# 	local gw_ip="$3"
+# 	local netmask="$4"
+# 	local device="$6"
+# 	local autoconf="$7"
+# 	local dns1="$8"
+# 	local dns2="$9"
+
+# 	case "$client_ip" in
+# 	off | none) return ;;
+# 	dhcp) autoconf="dhcp" ;;
+# 	esac
+
+# 	[ "$device" ] || device=$(ip_choose_if)
+
+# 	if [ -z "$device" ]; then
+# 		echo "ERROR: IP requested but no network device was found"
+# 		return 1
+# 	fi
+
+# 	if [ "$autoconf" = "dhcp" ]; then
+# 		# automatic configuration
+# 		if [ ! -e /usr/share/udhcpc/default.script ]; then
+# 			echo "ERROR: DHCP requested but not present in initrd"
+# 			return 1
+# 		fi
+# 		ebegin "Obtaining IP via DHCP ($device)"
+# 		ifconfig "$device" 0.0.0.0
+# 		udhcpc -i "$device" -f -q
+# 		eend $?
+# 	else
+# 		# manual configuration
+# 		[ "$client_ip" ] && [ "$netmask" ] || return
+# 		ebegin "Setting IP ($device)"
+# 		if ifconfig "$device" "$client_ip" netmask "$netmask"; then
+# 			[ -z "$gw_ip" ] || ip route add 0.0.0.0/0 via "$gw_ip" dev "$device"
+# 		fi
+# 		eend $?
+# 	fi
+
+# 	# Never executes if variables are empty
+# 	for i in $dns1 $dns2; do
+# 		echo "nameserver $i" >>/etc/resolv.conf
+# 	done
+
+# 	MAC_ADDRESS=$(cat "/sys/class/net/$device/address")
+# }
+
+# setup_nbd() {
+# 	modprobe -q nbd max_part=8 || return 1
+# 	local IFS=, n=0
+# 	set -- "$nbd"
+# 	unset IFS
+# 	for ops; do
+# 		local server="${ops%:*}"
+# 		local port="${ops#*:}"
+# 		local device="/dev/nbd${n}"
+# 		[ -b "$device" ] || continue
+# 		nbd-client "$server" "$port" "$device" && n=$((n + 1))
+# 	done
+# 	[ "$n" != 0 ] || return 1
+# }
+
+# Do some tasks to make sure mounting the ZFS pool is A-OK
+# prepare_zfs_root() {
+# 	local _root_vol="${ROOT#ZFS=}"
+# 	local _root_pool="${_root_vol%%/*}"
+
+# 	# Force import if this has been imported on a different system previously.
+# 	# Import normally otherwise
+# 	if [ "$zfs_force" = 1 ]; then
+# 		zpool import -N -d /dev -f "$_root_pool"
+# 	else
+# 		zpool import -N -d /dev "$_root_pool"
+# 	fi
+
+# 	# Ask for encryption password
+# 	if [ "$(zpool list -H -o feature@encryption "$_root_pool")" = "active" ]; then
+# 		local _encryption_root="$(zfs get -H -o value encryptionroot "$_root_vol")"
+# 		if [ "$_encryption_root" != "-" ]; then
+# 			eval zfs load-key "$_encryption_root"
+# 		fi
+# 	fi
+# }
+
+launch_shell() {
+	echo -e "\n$1"
+	# modprobe -a atkbd hid-apple
+	sh 2>&1
+}
+
+remount_rw() {
+	# "foo" as mount source is given to workaround a Busybox bug with NFS
+	# - as it's ignored anyways it shouldn't harm for other filesystems.
+	mount -o remount,rw foo /mnt
+}
+
+check_root() {
+	if [ "$(dirname "$1")" = "/dev" ]; then
+		[ -e "$1" ] || return 1
+		blk=$(basename "$1")
+		[ ! -e "/dev/block/$blk" ] && ln "$1" /dev/block
+		local dev="/dev/block/$blk"
+	else
+		local dev="$1"
+	fi
+	shift
+
+	[ "$ROOTFOUND" = "true" ] && return 0
+
+	MOUNT_CMD=mount
+	MNTFLAGS=ro,noatime
+	case $(blkid "$1") in
+	*TYPE=*ntfs*)
+		if ! modinfo ntfs3 >/dev/null; then
+			MOUNT_CMD=mount.ntfs-3g
+			MNTFLAGS=rw,force
+		fi
+		;;
+	*) ;;
+	esac
+
+	/bin/$MOUNT_CMD -o ${MNTFLAGS}${ROOTFLAGS:+,$ROOTFLAGS} ${ROOTFSTYPE:+-t $ROOTFSTYPE} "$dev" /mnt ||
+		return 1
+
+	if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
+		mount --move /mnt /iso
+		mkdir /mnt/iso
+		mount -o loop /iso/"$ISO" /mnt/iso
+		SRC=iso
+	fi
+
+	# [ "$INSTALL" ] && [ ! -e "/mnt/$SRC/install.img" ] && return 1
+
+	mount_loop() { mount -o loop,noatime "$1" "$2"; }
+	mount_img() { mount_loop "$1" android; }
+	mount_dir() { mount --bind "$1" android; }
+
+	SYSTEM_IMG=$(ls /mnt/"$SRC"/system* 2>/dev/null | head -1)
+	case "$SYSTEM_IMG" in
+	*.?fs) mount_loop "$SYSTEM_IMG" sfs && mount_img /sfs/system.img ;;
+	*.img) mount_img "$SYSTEM_IMG" ;;
+	*system) mount_dir "$SYSTEM_IMG" ;;
+	*) [ -s "/mnt/$SRC/default.prop" ] && mount_dir "/mnt/$SRC" || false ;;
+	esac
+
+	if [ $? = 0 ]; then
+		echo " found at $dev"
+		ROOTFOUND=true
+		# [ "$ANDROID_VER" ] || ANDROID_VER=$(sed -nE "s/^ro.build.version.release=([0-9]*)\.*.*$/\1/pi" /android/system/build.prop)
+		hash -r
+	else
+		mountpoint -q /mnt && umount /mnt
+		return 1
+	fi
+}
+
+# Spread out busybox symlinks and make them available without full path
+/bin/busybox --install -s
+export PATH=/bin:/sbin:/usr/bin:/system/bin:/system/xbin
+
+# auto installation
+# [ "$AUTO_INSTALL" ] && INSTALL=1
+
+# configure debugging output
+if [ "$DEBUG" ]; then
+	set -x
+else
+	exec 2>>/tmp/log
+fi
+
+# Make sure /dev/null is a device node. If /dev/null does not exist yet, the command
+# mounting the devtmpfs will create it implicitly as an file with the "2>" redirection.
+# The -c check is required to deal with initramfs with pre-seeded device nodes without
+# error message.
+[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3
+
+mount -t sysfs -o noexec,nosuid,nodev sysfs /sys
+mount -t devtmpfs -o exec,nosuid,mode=0755,size=2M devtmpfs /dev 2>/dev/null ||
+	mount -t tmpfs -o exec,nosuid,mode=0755,size=2M tmpfs /dev
+
+# Make sure /tmp/log is a device node. Writing to /tmp/log allows the use of the
+# earlyprintk kernel option to monitor early init progress. As above, the -c check
+# prevents an error if the device node has already been seeded.
+[ -c /tmp/log ] || mknod -m 660 /tmp/log c 1 11
+
+mount -t proc -o noexec,nosuid,nodev proc /proc
+# pty device nodes (later system will need it)
+[ -c /dev/ptmx ] || mknod -m 666 /dev/ptmx c 5 2
+[ -d /dev/pts ] || mkdir -m 755 /dev/pts
+mount -t devpts -o gid=5,mode=0620,noexec,nosuid devpts /dev/pts
+
+if [ ! "$DEBUG" ]; then
+	echo 0 0 0 0 >/proc/sys/kernel/printk
+fi
+
+# initialise /dev (first time)
+[ -d /dev/pts ] || mkdir -m 755 /dev/block
+echo /sbin/mdev >/proc/sys/kernel/hotplug
+mdev -s
+sleep 3
+echo 0 >/proc/sys/kernel/printk
+
+# read the kernel options. we need surve things like:
+#  acpi_osi="!Windows 2006" xen-pciback.hide=(01:00.0)
+set -- $(cat /proc/cmdline)
+
+[ "$DEBUG" = "pre" ] && launch_shell "Pre-boot debug requested, launching interactive shell..."
+
+run_hookfunctions() {
+	local hook fn="$1"
+	for hook in /hooks/*; do
+		unset "$fn"
+
+		. "/hooks/$hook"
+		type "$fn" >/dev/null || continue
+
+		# msg ":: running $desc [$hook]"
+		"$fn"
+	done
+}
+
+# run early hooks
+run_hookfunctions "run_earlyhook"
+
+# if [ "$zfcp" ]; then
+# 	modprobe zfcp
+# 	for _zfcp in $(echo "$zfcp" | tr ',' ' ' | tr [A-Z] [a-z]); do
+# 		echo 1 >/sys/bus/ccw/devices/"${_zfcp%%:*}"/online
+# 	done
+# fi
+
+# if [ "$dasd" ]; then
+# 	for mod in dasd_mod dasd_eckd_mod dasd_fba_mod; do
+# 		modprobe $mod
+# 	done
+# 	for _dasd in $(echo "$dasd" | tr ',' ' ' | tr [A-Z] [a-z]); do
+# 		echo 1 >/sys/bus/ccw/devices/"${_dasd%%:*}"/online
+# 	done
+# fi
+
+# if [ "${s390x_net%%,*}" = "qeth_l2" ]; then
+# 	for mod in qeth qeth_l2 qeth_l3; do
+# 		modprobe $mod
+# 	done
+# 	_channel="$(echo "${s390x_net#*,}" | tr [A-Z] [a-z])"
+# 	echo "$_channel" >/sys/bus/ccwgroup/drivers/qeth/group
+# 	echo 1 >/sys/bus/ccwgroup/drivers/qeth/"${_channel%%,*}"/layer2
+# 	echo 1 >/sys/bus/ccwgroup/drivers/qeth/"${_channel%%,*}"/online
+# fi
+
+# modprobe -a loop squashfs simpledrm 2>/dev/null
+# if [ -f /etc/modules ]; then
+# 	sed 's/\#.*//g' </etc/modules |
+# 		while read -r module args; do
+# 			modprobe -q $module $args
+# 		done
+# fi
+
+# workaround for vmware
+# if grep -q VMware /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null; then
+# 	modprobe -a ata_piix mptspi sr-mod
+# fi
+
+# if [ "$cryptroot" ]; then
+# 	cryptopts="-c ${cryptroot}"
+# 	if [ "$cryptdiscards" = "yes" ]; then
+# 		cryptopts="$cryptopts -D"
+# 	fi
+# 	if [ "$cryptdm" ]; then
+# 		cryptopts="$cryptopts -m ${cryptdm}"
+# 	fi
+# 	if [ "$cryptheader" ]; then
+# 		cryptopts="$cryptopts -H ${cryptheader}"
+# 	fi
+# 	if [ "$cryptoffset" ]; then
+# 		cryptopts="$cryptopts -o ${cryptoffset}"
+# 	fi
+# 	if [ "$cryptkey" = "yes" ]; then
+# 		cryptopts="$cryptopts -k /crypto_keyfile.bin"
+# 	elif [ "$cryptkey" ]; then
+# 		cryptopts="$cryptopts -k ${cryptkey}"
+# 	fi
+# fi
+
+# if [ "$nbd" ]; then
+# 	# TODO: Might fail because nlplug-findfs hasn't plugged eth0 yet
+# 	configure_ip
+# 	setup_nbd || echo "Failed to setup nbd device."
+# fi
+
+[ -z "$SRC" ] && [ "$BOOT_IMAGE" ] && SRC=$(dirname "$BOOT_IMAGE")
+
+ROOTFOUND=
+if [ "$ROOT" ]; then
+	# [ "$cryptroot" ] && nlplug-findfs $cryptopts -p /sbin/mdev ${debug_init:+-d} "$ROOT"
+	check_root "$(find_mnt "$ROOT")" || launch_shell "ERROR: $ROOT is not a valid Android root filesystem, quitting..."
+else
+	echo -e "Detecting Android..."
+	for d in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
+		[ -e "$d" ] && check_root "$d" && break 2
+	done
+	if [ -z "$ROOTFOUND" ]; then
+		# [ "$INSTALL" ] && echo "ERROR: INSTALL specified but no install.img found!"
+		launch_shell "ERROR: no valid Android root filesystem found, quitting..."
+	fi
+fi
+
+cd /android
+
+ln -s "/mnt/$SRC" /src
+ln -s android/system /
+ln -s ../system/lib/firmware ../system/lib/modules /lib
+
+# if test 0$ANDROID_VER -ge 10; then
+apex_runtime=/apex/com.android.runtime
+apex_link=system$apex_runtime
+case "$(ls /$apex_link* | head -1)" in
+*.debug) apex_link=apex_link.debug ;;
+*.release) apex_link=apex_link.release ;;
+esac
+ln -s ../android/$apex_link $apex_runtime
+# fi
+
+# if [ "$INSTALL" ]; then
+# 	zcat /src/install.img | (
+# 		cd /
+# 		cpio -iud >/dev/null
+# 	)
+# fi
+
+# load hooks
+run_hookfunctions "run_hook"
+
+# ensure keyboard driver is loaded
+# if [ "$INSTALL" ]; then
+# busybox modprobe -a atkbd hid-apple
+# auto_detect &
+# fi
+
+[ "$DEBUG" = "found" ] && launch_shell "Type 'exit' to continue booting..."
+
+# A target should provide its detect_hardware function.
+# On success, return 0 with the following values set.
+# return 1 if it wants to use auto_detect
+# [ "$AUTO" != "1" ] && detect_hardware && FOUND=1
+
+# [ "$INSTALL" ] && do_install
+
+# load_modules
+# mount_data
+# mount_sdcard
+# # hook_gearinit
+# setup_tslib
+# setup_dpi
+# post_detect
+
+if [ "$DEBUG" = "late" ]; then
+	echo -e "\nUse Alt-F1/F2/F3 to switch between virtual consoles"
+	launch_shell "Type 'exit' to enter Android..."
+fi
+
+# load hooks
+run_hookfunctions "run_latehook"
+
+[ "$DEBUG" ] && SWITCH=${SWITCH:-chroot}
+
+# We must disable mdev before switching to Android
+# since it conflicts with Android's init
+echo >/proc/sys/kernel/hotplug
+
+# Use correct modprobe location
+echo /system/bin/modprobe >/proc/sys/kernel/modprobe
+
+export ANDROID_ROOT=/system
+
+exec ${SWITCH:-switch_root} /android /init ||
+
+	# avoid kernel panic
+	while :; do
+		launch_shell '	Android console shell. Use only in emergencies.'
+	done

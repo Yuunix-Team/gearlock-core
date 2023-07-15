@@ -1,1 +1,29 @@
 #!/bin/bash
+
+install_hook() {
+	add_module "cdrom"
+	add_module "dm-snapshot"
+	add_module "overlay"
+	add_module "isofs"
+	add_module "erofs"
+	add_module "squashfs"
+	add_module "hfsplus"
+	add_module "sr_mod"
+	add_module "dm_mod"
+	add_module "dm-raid"
+	add_module "raid0"
+	add_module "raid1"
+	add_module "raid10"
+	add_module "raid456"
+
+	add_runscript
+
+	add_all_modules -f 'nls' '/kernel/fs'
+	add_all_modules -f 'overlayfs' '/kernel/fs'
+	add_all_modules -f 'squashfs' '/kernel/fs'
+	add_all_modules -f 'udf' '/kernel/fs'
+	add_all_modules -f 'ext4' '/kernel/fs'
+	add_all_modules -f 'hfsplus' '/kernel/fs'
+	add_all_modules -f 'usb-storage' '/kernel/drivers/usb'
+
+}

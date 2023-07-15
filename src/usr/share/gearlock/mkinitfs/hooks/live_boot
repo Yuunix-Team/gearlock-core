@@ -1,2 +1,12 @@
 #!/bin/sh
 
+live_mount_handler() {
+	echo
+}
+
+run_hook() {
+	for mod in dm_mod dm-raid raid0 raid1 raid456 loop; do
+		modprobe $mod || true
+	done
+	export mount_handler="live_mount_handler"
+}

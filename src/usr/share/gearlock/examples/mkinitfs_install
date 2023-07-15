@@ -1,0 +1,10 @@
+#!/bin/bash
+
+install_hook(){
+  # required function
+  
+  add_module "module" # to add 'module' to initrd image
+  add_all_module "module" "/path" # to add all 'module' in 'path' to initrd image
+  add_binary "binary" # to add '$PATH/binary' to initrd image
+  add_runscript # to add 'hooks/filename'
+}

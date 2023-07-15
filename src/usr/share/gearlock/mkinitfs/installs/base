@@ -1,0 +1,42 @@
+#!/bin/bash
+
+checkfs() { blkid -o value -s TYPE "$1"; }
+
+install_hook() {
+  add_module "loop"
+
+  . /etc/gearlock.conf
+
+  case "$SYSTEM_TYPE" in
+  sfs) add_module "squashfs" ;;
+  efs) add_module "erofs" ;;
+  esac
+
+  set -- $(cat /proc/cmdline)
+  for arg in "$@"; do
+    case "$arg" in
+    ROOT=*) ROOT=$(resolve_device "${arg#*=}") ;;
+    SYSTEM=*) SYSTEM="${arg#*=}" ;;
+    DATA=*) DATA="${arg#*=}" ;;
+    esac
+  done
+
+  add_module "$(checkfs "$ROOT")"
+
+  case "$SYSTEM" in
+  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+    SYSTEM=$(resolve_device "$SYSTEM")
+    add_module "$(checkfs "$SYSTEM")"
+    ;;
+  *) add_module "ext4" ;;
+  esac
+
+  case "$DATA" in
+  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+    DATA=$(resolve_device "$DATA")
+    ;;
+  *) DATA=$SRCDIR/$DATA ;;
+  esac
+
+  add_module "$(checkfs "$DATA")"
+}
