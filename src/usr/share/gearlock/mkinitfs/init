@@ -182,63 +182,93 @@ remount_rw() {
 }
 
 check_root() {
-	if [ "$(dirname "$1")" = "/dev" ]; then
-		[ -e "$1" ] || return 1
-		blk=$(basename "$1")
-		[ ! -e "/dev/block/$blk" ] && ln "$1" /dev/block
-		local dev="/dev/block/$blk"
-	else
-		local dev="$1"
-	fi
-	shift
+	local device="$1" SYSTEMFS SYSTEM_BLK DATAFS DATA_BLK MOUNT SYSTEM_IMG
 
-	[ "$ROOTFOUND" = "true" ] && return 0
+	mount_loop() { mount -o loop,noatime "$1" "$2"; }
+	mount_dir() { mount --bind "$1" "$2"; }
+	fs_type() { blkid -o value -s TYPE "$1"; }
 
-	MOUNT_CMD=mount
-	MNTFLAGS=ro,noatime
-	case $(blkid "$1") in
-	*TYPE=*ntfs*)
-		if ! modinfo ntfs3 >/dev/null; then
-			MOUNT_CMD=mount.ntfs-3g
-			MNTFLAGS=rw,force
-		fi
+	case "$SYSTEM" in
+	/dev/* | UUID=* | LABEL=*)
+		SYSTEM=$(find_mnt "$SYSTEM")
+		SYSTEMFS=$(fs_type "$SYSTEM")
+		case "$SYSTEMFS" in
+		squashfs | erofs)
+			mount -t "$SYSTEMFS" "$SYSTEM" sfs &&
+				mount_loop /sfs/system.img android
+			;;
+		*) mount -t "$SYSTEMFS" "$SYSTEM" android ;;
+		esac
+		[ $? != 0 ] || return 1
+		SYSTEM_BLK=true
 		;;
-	*) ;;
 	esac
 
-	/bin/$MOUNT_CMD -o ${MNTFLAGS}${ROOTFLAGS:+,$ROOTFLAGS} ${ROOTFSTYPE:+-t $ROOTFSTYPE} "$dev" /mnt ||
-		return 1
+	case "$DATA" in
+	/dev/* | UUID=* | LABEL=*)
+		DATA=$(find_mnt "$DATA")
+		DATAFS=$(fs_type "$DATA")
+		mount -t "$DATAFS" "$DATA" data || return 1
+		DATA_BLK=true
+		;;
+	9p)
+		modprobe 9pnet_virtio &&
+			mount -t 9p -o trans=virtio data data -oversion=9p2000.L,posixacl,cache=loose ||
+			return 1
+		DATA_BLK=true
+		;;
+	esac
 
-	if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
-		mount --move /mnt /iso
-		mkdir /mnt/iso
-		mount -o loop /iso/"$ISO" /mnt/iso
-		SRC=iso
+	if [ ! "$DATA" ]; then
+		mount -t tmpfs tmpfs data
+		DATA_BLK=true
 	fi
+
+	if [ ! "$GEARLOCK" ] && [ "$SYSTEM_BLK" ] && [ "$DATA_BLK" ]; then
+		return 0
+	fi
+
+	# [ "$ROOTFOUND" = "true" ] && return 0
+
+	MOUNT=mount
+	case $(fs_type "$1") in
+	ntfs) if modinfo ntfs3 >/dev/null; then
+		FS=ntfs3
+	else
+		MOUNT=mount.ntfs-3g
+	fi ;;
+	esac
+
+	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$device" /mnt || return 1
+
+	# if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
+	# 	mount --move /mnt /iso
+	# 	mkdir /mnt/iso
+	# 	mount -o loop /iso/"$ISO" /mnt/iso
+	# 	SRC=iso
+	# fi
 
 	# [ "$INSTALL" ] && [ ! -e "/mnt/$SRC/install.img" ] && return 1
 
-	mount_loop() { mount -o loop,noatime "$1" "$2"; }
-	mount_img() { mount_loop "$1" android; }
-	mount_dir() { mount --bind "$1" android; }
-
-	SYSTEM_IMG=$(ls /mnt/"$SRC"/system* 2>/dev/null | head -1)
-	case "$SYSTEM_IMG" in
-	*.?fs) mount_loop "$SYSTEM_IMG" sfs && mount_img /sfs/system.img ;;
-	*.img) mount_img "$SYSTEM_IMG" ;;
-	*system) mount_dir "$SYSTEM_IMG" ;;
-	*) [ -s "/mnt/$SRC/default.prop" ] && mount_dir "/mnt/$SRC" || false ;;
+	SYSTEM_IMG=/mnt/$SRC/$SYSTEM
+	case "$SYSTEM" in
+	*.?fs) mount_loop "$SYSTEM_IMG" sfs && mount_loop /sfs/system.img android ;;
+	*.img) mount_loop "$SYSTEM_IMG" android ;;
+	system) mount_dir "$SYSTEM_IMG" android ;;
 	esac
 
-	if [ $? = 0 ]; then
-		echo " found at $dev"
-		ROOTFOUND=true
-		# [ "$ANDROID_VER" ] || ANDROID_VER=$(sed -nE "s/^ro.build.version.release=([0-9]*)\.*.*$/\1/pi" /android/system/build.prop)
-		hash -r
-	else
+	if [ $? != 0 ]; then
 		mountpoint -q /mnt && umount /mnt
 		return 1
 	fi
+
+	DATA_IMG=/mnt/$SRC/$DATA
+	case "$DATA" in
+	data.img) mount_loop "$DATA_IMG" data ;;
+	data) mkdir -p "$DATA_IMG" && mount_dir "$DATA_IMG" data ;;
+	esac
+
+	[ $? = 0 ] || return 1
 }
 
 # Spread out busybox symlinks and make them available without full path
@@ -306,9 +336,6 @@ run_hookfunctions() {
 	done
 }
 
-# run early hooks
-run_hookfunctions "run_earlyhook"
-
 # if [ "$zfcp" ]; then
 # 	modprobe zfcp
 # 	for _zfcp in $(echo "$zfcp" | tr ',' ' ' | tr [A-Z] [a-z]); do
@@ -375,22 +402,47 @@ run_hookfunctions "run_earlyhook"
 # 	setup_nbd || echo "Failed to setup nbd device."
 # fi
 
+if [ -n "$earlymodules$MODULES" ]; then
+	modprobe -qab #${earlymodules//,/ } $MODULES
+fi
+
 [ -z "$SRC" ] && [ "$BOOT_IMAGE" ] && SRC=$(dirname "$BOOT_IMAGE")
 
-ROOTFOUND=
-if [ "$ROOT" ]; then
-	# [ "$cryptroot" ] && nlplug-findfs $cryptopts -p /sbin/mdev ${debug_init:+-d} "$ROOT"
-	check_root "$(find_mnt "$ROOT")" || launch_shell "ERROR: $ROOT is not a valid Android root filesystem, quitting..."
-else
-	echo -e "Detecting Android..."
-	for d in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
-		[ -e "$d" ] && check_root "$d" && break 2
-	done
-	if [ -z "$ROOTFOUND" ]; then
-		# [ "$INSTALL" ] && echo "ERROR: INSTALL specified but no install.img found!"
-		launch_shell "ERROR: no valid Android root filesystem found, quitting..."
-	fi
-fi
+# default values
+# ROOT must exist for default mount handler
+SYSTEM=${SYSTEM:-system.img}
+MODE=${MODE:-normal}
+DATA=${DATA:-data.img}
+
+case "$MODE" in
+freshboot) DATA= ;;
+esac
+
+for dev in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
+	[ -e "$dev" ] || continue
+	ln "$dev" /dev/block
+done
+
+export mount_handler=checkroot
+
+# load hooks
+run_hookfunctions "run_hook"
+
+# ROOTFOUND=
+# if [ "$ROOT" ]; then
+# [ "$cryptroot" ] && nlplug-findfs $cryptopts -p /sbin/mdev ${debug_init:+-d} "$ROOT"
+"$mount_handler" "$(find_mnt "$ROOT")" ||
+	launch_shell "ERROR: Mount failed, quitting..."
+# else
+# 	echo -e "Detecting Android..."
+# 	for d in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
+# 		[ -e "$d" ] && check_root "$d" && break 2
+# 	done
+# 	if [ -z "$ROOTFOUND" ]; then
+# 		# [ "$INSTALL" ] && echo "ERROR: INSTALL specified but no install.img found!"
+# 		launch_shell "ERROR: no valid Android root filesystem found, quitting..."
+# 	fi
+# fi
 
 cd /android
 
@@ -401,10 +453,12 @@ ln -s ../system/lib/firmware ../system/lib/modules /lib
 # if test 0$ANDROID_VER -ge 10; then
 apex_runtime=/apex/com.android.runtime
 apex_link=system$apex_runtime
+
 case "$(ls /$apex_link* | head -1)" in
 *.debug) apex_link=apex_link.debug ;;
 *.release) apex_link=apex_link.release ;;
 esac
+
 ln -s ../android/$apex_link $apex_runtime
 # fi
 
@@ -414,9 +468,6 @@ ln -s ../android/$apex_link $apex_runtime
 # 		cpio -iud >/dev/null
 # 	)
 # fi
-
-# load hooks
-run_hookfunctions "run_hook"
 
 # ensure keyboard driver is loaded
 # if [ "$INSTALL" ]; then
