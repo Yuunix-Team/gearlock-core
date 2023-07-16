@@ -7,11 +7,6 @@ install_hook() {
 
   . /etc/gearlock.conf
 
-  case "$SYSTEM_TYPE" in
-  sfs) add_module "squashfs" ;;
-  efs) add_module "erofs" ;;
-  esac
-
   set -- $(cat /proc/cmdline)
   for arg in "$@"; do
     case "$arg" in
@@ -21,22 +16,27 @@ install_hook() {
     esac
   done
 
-  add_module "$(checkfs "$ROOT")"
+  [ "$ROOT" ] && add_module "$(checkfs "$ROOT")"
 
   case "$SYSTEM" in
   /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
     SYSTEM=$(resolve_device "$SYSTEM")
     add_module "$(checkfs "$SYSTEM")"
     ;;
-  *) add_module "ext4" ;;
+  *) 
+  case "$SYSTEM_TYPE" in
+  sfs) add_module "squashfs" ;;
+  efs) add_module "erofs" ;;
+  esac
+  add_module "ext4" ;;
   esac
 
   case "$DATA" in
-  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+  /dev/* | LABEL=* | PARLABEL=* | UUID=* | PARTUUID=*)
     DATA=$(resolve_device "$DATA")
     ;;
   *) DATA=$SRCDIR/$DATA ;;
   esac
 
-  add_module "$(checkfs "$DATA")"
+  [ "$DATA" ] && add_module "$(checkfs "$DATA")"
 }

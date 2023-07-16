@@ -1,0 +1,74 @@
+#!/bin/sh
+
+bliss_feature() {
+  if [ "$INTERNAL_MOUNT" -gt "0" ]; then
+    cat <<"EOF"
+# WARNING: INTERNAL_MOUNT option is enabled, all the internal partitions 
+# will now being recognized as USBs if the supported filesystem is available 
+# and will create empty directories like Android, DCIM, Documents, etc.
+
+## DO NOT PRESS "TAP TO FIX", IT WILL FORMAT THE DRIVE
+EOF
+
+    mount --bind system/vendor/etc/fstab.internal.x86 "$(ls | grep fstab.)"
+  fi
+
+  # Enabling AOSP features for PC
+  if [ "$PC_MODE" -gt "0" ]; then
+    cat <<"EOF"
+# WARNING: PC_MODE will not working once Magisk or KernelSU modules are installed.
+# Visit BlissOS wiki for more info & solution
+EOF
+    mount --bind system/etc/hidden_xml/pc.xml system/etc/permissions/pc.xml
+  fi
+
+  if [ "$HPE" -gt "0" ]; then
+    cat <<"EOF"
+# WARNING: HPE will not working once Magisk or KernelSU modules are installed.
+# Visit BlissOS wiki for more info & solution
+EOF
+    mount --bind system/etc/hidden_xml/hpe.xml system/etc/sysconfig/hpe.xml
+  fi
+
+  # Enable c2.ffmpeg on VINTF Manifest
+  if [ "$FFMPEG_CODEC" -gt "0" ]; then
+    cat <<"EOF"
+# WARNING: c2.ffmpeg will not list on VINTF manifest list once Magisk
+# or KernelSU modules are installed.
+# Visit BlissOS wiki for more info & solution
+EOF
+    mount --bind system/etc/hidden_xml/manifest_media_c2_V1_2_ffmpeg.xml system/vendor/etc/vintf/manifest/manifest_media_c2_V1_2_ffmpeg.xml
+  fi
+}
+
+device_information() {
+  DMIPATH=/sys/class/dmi/id
+  BOARD=$(cat $DMIPATH/board_name)
+  PRODUCT=$(cat $DMIPATH/product_name)
+  PRODUCT_VER=$(cat $DMIPATH/product_version)
+  UEVENT=$(cat $DMIPATH/uevent)
+  VENDOR=$(cat $DMIPATH/sys_vendor)
+
+  touch /tmp/device.prop
+
+  case "$VENDOR" in
+  *LENOVO* | *Lenovo*) PRODUCT=$(cat $DMIPATH/product_family) ;;
+  esac
+
+  cat <<EOF >>/tmp/device.prop
+ro.product.bliss.device=$PRODUCT
+ro.product.bliss.name=$PRODUCT
+ro.product.bliss.brand=$VENDOR
+ro.product.bliss.manufacturer=$(cat $DMIPATH/board_vendor)
+ro.product.bliss.model=$BOARD
+ro.product.board=$BOARD
+ro.bliss.serialnumber=$(cat $DMIPATH/product_serial)
+EOF
+
+  mount --bind /tmp/device.prop system/vendor/etc/device.prop
+}
+
+run_latehook() {
+  bliss_feature
+  device_information
+}

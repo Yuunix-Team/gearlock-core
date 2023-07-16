@@ -24,7 +24,11 @@ case "$SYSTEM" in
   fi
   ;;
 *)
-  SYSTEM=$SRCDIR/$SYSTEM
+  case "$SYSTEM_TYPE" in
+  ?fs | img) COMP=".$SYSTEM_TYPE" ;;
+  esac
+
+  SYSTEM=$SRCDIR/system$COMP
   FREESPACE=$(/usr/lib/gearlock/checkfree)
   checkspace
 

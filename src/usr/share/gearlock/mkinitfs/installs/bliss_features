@@ -1,0 +1,7 @@
+#!/bin/bash
+
+install_hooks() {
+  if grep ro.version.bliss= /system/build.prop; then
+    add_runscript
+  fi
+}

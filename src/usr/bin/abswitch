@@ -22,21 +22,21 @@ MODE=$_
   die "Your current system has already been '$MODE'"
 
 SYSTEM=
-COMP=
-
-case "$SYSTEM" in *.?fs | .img) COMP=".${SYSTEM##*.}" ;; esac
+case "$SYSTEM_TYPE" in
+?fs | img) COMP=".$SYSTEM_TYPE" ;;
+esac
 
 case "$MODE" in
 ab)
   if [ "$OLD_MODE" = ab ]; then
-    to() { mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/${SYSTEM//_$1/_$2}"; }
+    to() { mv -r "$SRCDIR/system_$1$COMP" "$SRCDIR/system_$2$COMP"; }
     if echo "$SYSTEM" | grep -E '_a(\.(img|[se]fs))?$'; then
       to a b
     else
       to b a
     fi
   else
-    mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system_a$COMP"
+    mv -r "$SRCDIR/system$COMP" "$SRCDIR/system_a$COMP"
   fi
   ;;
 aonly)

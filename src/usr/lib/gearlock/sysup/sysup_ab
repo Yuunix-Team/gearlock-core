@@ -6,15 +6,19 @@ NEWIMG=$1
 NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
 shift
 
-other() { THE_OTHER=${SYSTEM//_$1/_$2}; }
+case "$SYSTEM_TYPE" in
+?fs | img) COMP=".$SYSTEM_TYPE" ;;
+esac
 
-echo "$SYSTEM" | grep -E '_a(\.(img|[se]fs))?$' && other a b || other b a
+other() { THE_OTHER=$SRCDIR/system_$1$COMP; }
 
-[ "$THE_OTHER" ] && rm -rf "$SRCDIR/$THE_OTHER"
+echo "$SYSTEM" | grep -E '_a(\.(img|[se]fs))?$' && other b || other a
+
+[ -e "$THE_OTHER" ] && rm -rf "$THE_OTHER"
 
 FREESPACE=$(/usr/lib/gearlock/checkfree)
 
 ((NEWIMGSIZE > FREESPACE)) &&
   die "Not enough space to update system image"
 
-mv "$NEWIMG" "$SRCDIR/$THE_OTHER"
+mv "$NEWIMG" "$THE_OTHER"
