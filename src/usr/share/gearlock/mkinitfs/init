@@ -224,7 +224,7 @@ check_root() {
 		DATA_BLK=true
 	fi
 
-	if [ ! "$GEARLOCK" ] && [ "$SYSTEM_BLK" ] && [ "$DATA_BLK" ]; then
+	if [ "$SYSTEM_BLK" ] && [ "$DATA_BLK" ]; then
 		return 0
 	fi
 
@@ -492,13 +492,13 @@ ln -s ../android/$apex_link $apex_runtime
 # setup_dpi
 # post_detect
 
+# load hooks
+run_hookfunctions "run_latehook"
+
 if [ "$DEBUG" = "late" ]; then
 	echo -e "\nUse Alt-F1/F2/F3 to switch between virtual consoles"
 	launch_shell "Type 'exit' to enter Android..."
 fi
-
-# load hooks
-run_hookfunctions "run_latehook"
 
 [ "$DEBUG" ] && SWITCH=${SWITCH:-chroot}
 

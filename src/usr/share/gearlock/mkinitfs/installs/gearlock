@@ -1,2 +1,5 @@
 #!/bin/bash
 
+install_hook() {
+  add_runscript
+}

@@ -1,1 +1,23 @@
 #!/bin/sh
+
+run_hook() {
+  [ "$ROOT" ] && fsck "$(find_mnt "$ROOT")"
+  case "$SYSTEM" in
+	/dev/* | UUID=* | LABEL=*)
+		SYSTEM=$(find_mnt "$SYSTEM")
+		SYSTEMFS=$(fs_type "$SYSTEM")
+		case "$SYSTEMFS" in
+		squashfs | erofs) ;;
+		*) "fsck.$SYSTEMFS" "$SYSTEM" ;;
+		esac
+		;;
+	esac
+
+	case "$DATA" in
+	/dev/* | UUID=* | LABEL=*)
+		DATA=$(find_mnt "$DATA")
+		DATAFS=$(fs_type "$DATA")
+		"fsck.$DATAFS" "$DATA"
+		;;
+	esac
+}

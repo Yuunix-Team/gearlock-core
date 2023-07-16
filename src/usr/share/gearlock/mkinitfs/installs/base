@@ -23,12 +23,13 @@ install_hook() {
     SYSTEM=$(resolve_device "$SYSTEM")
     add_module "$(checkfs "$SYSTEM")"
     ;;
-  *) 
-  case "$SYSTEM_TYPE" in
-  sfs) add_module "squashfs" ;;
-  efs) add_module "erofs" ;;
-  esac
-  add_module "ext4" ;;
+  *)
+    case "$SYSTEM_TYPE" in
+    sfs) add_module "squashfs" ;;
+    efs) add_module "erofs" ;;
+    esac
+    add_module "ext4"
+    ;;
   esac
 
   case "$DATA" in
@@ -39,4 +40,5 @@ install_hook() {
   esac
 
   [ "$DATA" ] && add_module "$(checkfs "$DATA")"
+  add_runscript
 }

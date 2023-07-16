@@ -1,1 +1,64 @@
 #!/bin/bash
+
+install_hook() {
+  local added=
+
+  add_fsck() {
+    case "$1" in
+    ext[234])
+      add_binary e2fsck
+      add_symlink /usr/bin/fsck.ext2 e2fsck
+      add_symlink /usr/bin/fsck.ext3 e2fsck
+      add_symlink /usr/bin/fsck.ext4 e2fsck
+      if [ -e /etc/e2fsck.conf ]; then
+        add_file /etc/e2fsck.conf
+      fi
+      ;;
+    xfs)
+      add_binary fsck.xfs
+      add_binary xfs_repair
+      ;;
+    btrfs)
+      add_binary btrfs
+      ;;
+    *)
+      if compgen -c "fsck.$1" &>/dev/null; then
+        add_binary "fsck.$1"
+      else
+        return 1
+      fi
+      ;;
+    esac
+    added=1
+  }
+
+  set -- $(cat /proc/cmdline)
+  for arg in "$@"; do
+    case "$arg" in
+    ROOT=*) ROOT=$(resolve_device "${arg#*=}") ;;
+    SYSTEM=*) SYSTEM="${arg#*=}" ;;
+    DATA=*) DATA="${arg#*=}" ;;
+    esac
+  done
+
+  [ "$ROOT" ] && add_fsck "$(checkfs "$ROOT")"
+
+  case "$SYSTEM" in
+  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+    add_fsck "$(checkfs "$(resolve_device "$SYSTEM")")"
+    ;;
+  *) add_fsck "ext4" ;;
+  esac
+
+  case "$DATA" in
+  /dev/* | LABEL=* | PARLABEL=* | UUID=* | PARTUUID=*)
+    add_fsck "$(checkfs "$(resolve_device "$DATA")")"
+    ;;
+  *) add_fsck "$(checkfs "$SRCDIR/$DATA")" ;;
+  esac
+
+  if [ "$added" ]; then
+    add_binary fsck
+    add_runscript
+  fi
+}
