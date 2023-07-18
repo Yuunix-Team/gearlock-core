@@ -10,7 +10,10 @@ while read -r file; do
   [ -d "$target_dir" ] || mkdir -p "$target_dir"
 
   case "$header" in
-  \#\!/*) ./tools/minifier/minifier.sh --shell="${header#*\!}" --output="$target" "$file" ;;
+  \#\!/*)
+    ./tools/minifier/minifier.sh --shell="${header#*\!}" --output="$target" "$file"
+    chmod +x "$target"
+    ;;
   *) cp "$file" "$target" ;;
   esac
 

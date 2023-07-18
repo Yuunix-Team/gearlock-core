@@ -3,201 +3,886 @@
 VERSION=3.7.0-r0
 config=/etc/mkinitfs.conf
 
+. /etc/gearlock.conf
 . $config
 
 init="$DATADIR"/init
 
 startdir=$PWD
+_hooks=()
+declare -A _runhooks _addedmodules _modpaths _autodetect_cache
 
-feature_files() {
-	local dir="$1"
-	local suffix="$2"
-	local glob file fdir
-	for f in $features; do
-		for fdir in $features_dirs; do
-			[ -f "$fdir/$f.$suffix" ] || continue
-			for glob in $(sed -e '/^$/d' -e '/^#/d' -e "s|^/*|$dir|" "$fdir/$f.$suffix"); do
-				for file in $glob; do
-					if [ -d "$file" ]; then
-						find "$file" -type f
-					elif [ -e "$file" ]; then
-						echo "$file"
-					fi
-				done
-			done
-			break
+die() {
+	error "$@"
+	cleanup 1
+}
+
+map() {
+	local r=0
+	for _ in "${@:2}"; do
+		# shellcheck disable=SC1105,SC2210,SC2035
+		"$1" "$_" || (($# > 255 ? r = 1 : ++r))
+	done
+	return "$r"
+}
+
+arrayize_config() {
+	set -f
+	[[ ${MODULES@a} != *a* ]] && IFS=' ' read -r -a MODULES <<<"$MODULES"
+	[[ ${BINARIES@a} != *a* ]] && IFS=' ' read -r -a BINARIES <<<"$BINARIES"
+	[[ ${FILES@a} != *a* ]] && IFS=' ' read -r -a FILES <<<"$FILES"
+	[[ ${HOOKS@a} != *a* ]] && IFS=' ' read -r -a HOOKS <<<"$HOOKS"
+	[[ ${COMPRESSION_OPTIONS@a} != *a* ]] && IFS=' ' read -r -a COMPRESSION_OPTIONS <<<"$COMPRESSION_OPTIONS"
+	set +f
+}
+
+all_modules() {
+	# Add modules to the initcpio, filtered by grep.
+	#   $@: filter arguments to grep
+	#   -f FILTER: ERE to filter found modules
+
+	local -i count=0
+	local mod='' OPTIND='' OPTARG='' modfilter=()
+
+	while getopts ':f:' flag; do
+		[[ "$flag" = "f" ]] && modfilter+=("$OPTARG")
+	done
+	shift $((OPTIND - 1))
+
+	# _d_kmoduledir is assigned in mkinitcpio
+	# shellcheck disable=SC2154
+	while read -r -d '' mod; do
+		((++count))
+
+		for f in "${modfilter[@]}"; do
+			[[ "$mod" =~ $f ]] && continue 2
+		done
+
+		mod="${mod##*/}"
+		mod="${mod%.ko*}"
+		printf '%s\n' "${mod//-/_}"
+	done < <(find "$_d_kmoduledir" -name '*.ko*' -print0 2>/dev/null | grep -EZz "$@")
+
+	((count))
+}
+
+add_all_modules() {
+	# Add modules to the initcpio.
+	#   $@: arguments to all_modules
+
+	local mod
+	local -a mods
+
+	mapfile -t mods < <(all_modules "$@")
+	map add_module "${mods[@]}"
+
+	return $((!${#mods[*]}))
+}
+
+
+add_checked_modules() {
+	# Add modules to the initcpio, filtered by the list of autodetected
+	# modules.
+	#   $@: arguments to all_modules
+
+	local mod
+	local -a mods
+
+	# _autodetect_cache is declared in mkinitcpio and assigned in install/autodetect
+	# shellcheck disable=SC2154
+	if ((${#_autodetect_cache[*]})); then
+		mapfile -t mods < <(all_modules "$@" | grep -xFf <(printf '%s\n' "${!_autodetect_cache[@]}"))
+	else
+		mapfile -t mods < <(all_modules "$@")
+	fi
+
+	map add_module "${mods[@]}"
+
+	return $((!${#mods[*]}))
+}
+
+add_firmware() {
+	# add a firmware file to the image.
+	#   $1: firmware path fragment
+
+	local fw fwpath
+	local -a fwfile
+	local -i r=1
+
+	for fw; do
+		# _d_firmware is assigned in mkinitcpio
+		# shellcheck disable=SC2154
+		for fwpath in "${_d_firmware[@]}"; do
+			# shellcheck disable=SC2153
+			if ! compgen -G "${tmpdir}${fwpath}/${fw}?(.*)" &>/dev/null; then
+				# modinfo has firmware entries with globs, read entries into an array
+				if read -r fwfile < <(compgen -G "${fwpath}/${fw}?(.*)"); then
+					map add_file "${fwfile[@]}" && r=0
+					break
+				fi
+			else
+				r=0
+				break
+			fi
 		done
 	done
+
+	return "$r"
 }
 
-initfs_base() {
-	local i='' glob='' file=''
-	install -dm755 "$tmpdir"/{android,apex,hd,iso,proc,sys,dev,tmp,var,etc,usr/{local/{bin,lib},lib/{modules,firmware},bin},sfs,mnt}
-	ln -s "usr/lib" "$tmpdir/lib"
-	ln -s "bin"     "$tmpdir/usr/sbin"
-	ln -s "bin"     "$tmpdir/usr/local/sbin"
-	ln -s "usr/bin" "$tmpdir/bin"
-	ln -s "usr/bin" "$tmpdir/sbin"
+add_module() {
+	# Add a kernel module to the initcpio image. Dependencies will be
+	# discovered and added.
+	#   $1: module name
 
-	local oldpwd="$PWD"
-	cd "${basedir}"
-	lddtree -R "$basedir" -l --no-auto-root \
-		$(feature_files "$basedir" files) \
-		\
-		| sed -e "s|^$basedir||" | sort -u \
-		| cpio --quiet -pdm "$tmpdir" || return 1
+	local target='' module='' softdeps=() deps=() field='' value='' firmware=()
+	local ign_errors=0 found=0
 
-	# copy init
-	cd "$startdir"
-	install -m755 "$init" "$tmpdir"/init || return 1
-	# for i in "$passwd" "$group"; do
-	# 	install -Dm644 "$i" "$tmpdir"/etc/${i##*/} || return 1
-	# done
-	cd "$oldpwd"
-}
-
-initfs_cpscripts() {
-	cp -r /usr/lib/mkinitfs/scripts "$tmpdir"
-}
-
-find_kmod_deps() {
-	awk -v prepend="/lib/modules/$kernel/" -v modulesdep="${basedir}lib/modules/$kernel/modules.dep" '
-function recursedeps(k,		j, dep) {
-	if (k in visited)
-		return;
-	visited[k] = 1;
-	split(deps[k], dep, " ");
-	for (j in dep)
-		recursedeps(dep[j]);
-	print(prepend k);
-}
-
-BEGIN {
-	if (modulesdep == "")
-		modulesdep="modules.dep";
-	FS = ": ";
-	while ( (getline < modulesdep) > 0) {
-		if (substr($0,1,1) == "/") {
-			gsub(prepend, "", $1);
-			gsub(prepend, "", $2);
-		}
-		deps[$1] = $2;
-	}
-}
-
-{
-	mod[$0] = 1;
-}
-
-END {
-	for (i in mod)
-		recursedeps(i);
-}'
-}
-
-find_kmods() {
-	local oldpwd="$PWD"
-	cd "$kerneldir" || return 1
-	for file in $(feature_files "${kerneldir}/" modules); do
-		echo "${file#"${kerneldir%/}"/}"
-	done | find_kmod_deps
-	cd "$oldpwd"
-}
-
-initfs_kmods() {
-	[ -z "$nokernel" ] || return 0
-	local glob='' file='' files='' dirs=''
-	rm -rf "$tmpdir"/lib/modules
-	# make sure we have modules.dep
-	if ! [ -f "$kerneldir"/modules.dep ]; then
-		depmod -b "${basedir}" $kernel
+	if [[ "$1" == *\? ]]; then
+		ign_errors=1
+		set -- "${1%?}"
 	fi
-	local oldpwd="$PWD"
-	cd "${basedir}"
-	for file in $(find_kmods); do
-		echo "${file#/}"
-	# DO NOT return with 1 if there are no custom modules for initramfs
-	done | sort -u | cpio --quiet -pdm "$tmpdir"
-	mkdir -p "$tmpdir"/lib/modules/$kernel/
-	for file in modules.order modules.builtin modules.builtin.modinfo; do
-		if [ -f "$kerneldir"/$file ]; then
-			cp "$kerneldir"/$file "$tmpdir"/lib/modules/$kernel/
-		fi
-	done
-	depmod $kernel -b "$tmpdir"
-	cd "$oldpwd"
+
+	target="${1%.ko*}" target="${target//-/_}"
+
+	# skip expensive stuff if this module has already been added
+	((_addedmodules["$target"] == 1)) && return
+
+	while IFS=':= ' read -r -d '' field value; do
+		case "$field" in
+		filename)
+			# Only add modules with filenames that look like paths (e.g.
+			# it might be reported as "(builtin)"). We'll defer actually
+			# checking whether or not the file exists -- any errors can be
+			# handled during module install time.
+			if [[ "$value" == /* ]]; then
+				found=1
+				module="${value##*/}" module="${module%.ko*}"
+				_modpaths["$value"]=1
+				_addedmodules["${module//-/_}"]=1
+			fi
+			;;
+		depends)
+			IFS=',' read -r -a deps <<<"$value"
+			map add_module "${deps[@]}"
+			;;
+		firmware)
+			firmware+=("$value")
+			;;
+		softdep)
+			read -ra softdeps <<<"$value"
+			for module in "${softdeps[@]}"; do
+				[[ $module == *: ]] && continue
+				add_module "$module?"
+			done
+			;;
+		esac
+	done < <(modinfo -b "$basedir" -k "$kver" -0 "$target" 2>/dev/null)
+
+	if ((!found)); then
+		((ign_errors || _addedmodules["$target"])) && return 0
+		printf "module not found: '%s'" "$target"
+		return 1
+	fi
+
+	if ((${#firmware[*]})); then
+		add_firmware "${firmware[@]}" ||
+			printf "Possibly missing firmware for module: '%s'" "$target"
+	fi
+
+	# handle module quirks
+	case "$target" in
+	fat)
+		add_module "nls_ascii?" # from CONFIG_FAT_DEFAULT_IOCHARSET
+		add_module "nls_cp437?" # from CONFIG_FAT_DEFAULT_CODEPAGE
+		;;
+	ocfs2)
+		add_module "configfs?"
+		;;
+	btrfs)
+		add_module "libcrc32c?"
+		;;
+	f2fs)
+		add_module "crypto-crc32?"
+		;;
+	ext4)
+		add_module "crypto-crc32c?"
+		;;
+	esac
 }
 
-initfs_firmware() {
-	[ -z "$nokernel" ] || return 0
-	rm -rf "$tmpdir"/lib/firmware
-	mkdir -p "$tmpdir"/lib/firmware
-	# Verify if there are initfs modules
-	_modules=$(find "$tmpdir"/lib/modules -type f -name "*.ko*" -print -quit)
-	[ -n "$_modules" ] || return 0
-	find "$tmpdir"/lib/modules -type f -name "*.ko*" | xargs modinfo -k $kernel -F firmware | sort -u | while read FW; do
-		[ -e "${basedir}/lib/firmware/${FW}" ] && install -pD "${basedir}/lib/firmware/${FW}" "$tmpdir"/lib/firmware/$FW
+add_full_dir() {
+	# Add a directory and all its contents, recursively, to the initcpio image.
+	# No parsing is performed and the contents of the directory is added as is.
+	#   $1: path to directory
+	#   $2: glob pattern to filter file additions (optional)
+	#   $3: path prefix that will be stripped off from the image path (optional)
+
+	local f='' filter="${2:-*}" strip_prefix="$3"
+
+	if [[ -n "$1" && -d "$1" ]]; then
+		add_dir "$1"
+
+		for f in "$1"/*; do
+			if [[ -L "$f" ]]; then
+				# Explicit glob matching
+				# shellcheck disable=SC2053
+				if [[ "$f" == $filter ]]; then
+					add_symlink "${f#"${strip_prefix}"}" "$(readlink "$f")"
+				fi
+			elif [[ -d "$f" ]]; then
+				add_full_dir "$f" "$filter" "$strip_prefix"
+			elif [[ -f "$f" ]]; then
+				# Explicit glob matching
+				# shellcheck disable=SC2053
+				if [[ "$f" == $filter ]]; then
+					add_file "$f" "${f#"${strip_prefix}"}"
+				fi
+			fi
+		done
+	fi
+}
+
+add_dir() {
+	# add a directory (with parents) to $tmpdir
+	#   $1: pathname on initcpio
+	#   $2: mode (optional)
+
+	if [[ -z "$1" || "$1" != /?* ]]; then
+		return 1
+	fi
+
+	local path="$1" mode="${2:-755}"
+
+	# shellcheck disable=SC2153
+	if [[ -d "${tmpdir}${1}" ]]; then
+		# ignore dir already exists
+		return 0
+	fi
+
+	command install -dm"${mode}" "${tmpdir}${path}"
+}
+
+add_symlink() {
+	# Add a symlink to the initcpio image. There is no checking done
+	# to ensure that the target of the symlink exists.
+	#   $1: pathname of symlink on image
+	#   $2: absolute path to target of symlink (optional, can be read from $1)
+
+	local name="$1" target="${2:-$1}" linkobject
+
+	(($# == 1 || $# == 2)) || return 1
+
+	# find out the link target
+	if [[ "$name" == "$target" ]]; then
+		linkobject="$(find "$target" -prune -printf '%l')"
+		# use relative path if the target is a file in the same directory as the link
+		# anything more would lead to the insanity of parsing each element in its path
+		if [[ "$linkobject" != *'/'* && ! -L "${name%/*}/${linkobject}" ]]; then
+			target="$linkobject"
+		else
+			target="$(realpath -eq -- "$target")"
+		fi
+	elif [[ -L "$target" ]]; then
+		target="$(realpath -eq -- "$target")"
+	fi
+	if [[ -z "$target" ]]; then
+		printf "invalid symlink: '%s'" "$name"
+		return 1
+	fi
+
+	add_dir "${name%/*}"
+
+	ln -sfn "$target" "${tmpdir}${name}"
+}
+
+add_file() {
+	# Add a plain file to the initcpio image. No parsing is performed and only
+	# the singular file is added.
+	#   $1: path to file
+	#   $2: destination on initcpio (optional, defaults to same as source)
+	#   $3: mode
+
+	# determine source and destination
+	local src="$1" dest="${2:-$1}" mode="$3" srcrealpath
+
+	if [[ ! -f "$src" ]]; then
+		printf "file not found: '%s'" "$src"
+		return 1
+	fi
+
+	# check if $src is a symlink
+	if [[ -L "$src" ]]; then
+		srcrealpath="$(realpath -- "$src")"
+		if [[ "$srcrealpath" != "$dest" ]]; then
+			# add the target file
+			add_file "$srcrealpath" "$srcrealpath" "$mode"
+			# create the symlink
+			add_symlink "$dest" "$src"
+			return
+		fi
+	fi
+
+	# unlike install, cp does not create directories leading to the destination
+	[[ -z "$mode" ]] && add_dir "${dest%/*}"
+
+	if [[ -z "$mode" ]]; then
+		command cp --remove-destination --preserve=mode,ownership "$src" "${tmpdir}${dest}"
+	else
+		command install -Dm"$mode" "$src" "${tmpdir}${dest}"
+	fi
+}
+
+add_runscript() {
+	# Adds a runtime script to the initcpio image. The name is derived from the
+	# script which calls it as the basename of the caller.
+
+	local fn script hookname="${BASH_SOURCE[1]##*/}"
+	local -a funcs
+
+	if ! script="$DATADIR/hooks/$hookname"; then
+		printf "runtime script for '%s' not found" "$hookname"
+		return
+	fi
+
+	if [[ -L "$script" ]]; then
+		script="$(realpath -- "$script")"
+	fi
+	add_file "$script" "/hooks/$hookname" 755
+
+	mapfile -t funcs < <(funcgrep '^run_[[:alnum:]_]+' "$script")
+
+	for fn in "${funcs[@]}"; do
+		case $fn in
+		run_earlyhook) _runhooks['early']+=" $hookname" ;;
+		run_hook) _runhooks['hooks']+=" $hookname" ;;
+		run_latehook) _runhooks['late']+=" $hookname" ;;
+		esac
 	done
+}
+
+add_binary() {
+	# Add a binary file to the initcpio image. library dependencies will
+	# be discovered and added.
+	#   $1: path to binary
+	#   $2: destination on initcpio (optional, defaults to same as source)
+
+	local line='' regex='' binary='' dest='' mode='' sodep='' resolved='' shebang='' interpreter=''
+
+	if [[ "${1:0:1}" != '/' ]]; then
+		binary="$(type -P "$1")"
+	else
+		binary="$1"
+	fi
+
+	dest="${2:-$binary}"
+
+	add_file "$binary" "$dest" || return 1
+
+	# non-binaries
+	if ! lddout="$(ldd "$binary" 2>/dev/null)"; then
+		# detect if the file has a shebang
+		if IFS='' LC_ALL=C read -rn2 -d '' shebang <"$binary" && [[ "$shebang" == '#!' ]]; then
+			read -r shebang <"$binary"
+			interpreter="${shebang##\#\!*([[:space:]])}"
+			# strip /usr/bin/env and warn if it is missing
+			if [[ "$interpreter" == '/usr/bin/env'* ]]; then
+				[[ -e "${tmpdir}/usr/bin/env" ]] || printf "Possibly missing '/usr/bin/env' for script: %s" "$binary"
+				interpreter="${interpreter##'/usr/bin/env'+([[:space:]])}"
+			fi
+			# strip parameters
+			interpreter="${interpreter%%[[:space:]]*}"
+			# check if the interpreter exists in tmpdir
+			if [[ "$interpreter" != '/'* ]] && PATH="${tmpdir}/usr/local/sbin:${tmpdir}/usr/local/bin:${tmpdir}/usr/bin" type -P "$interpreter" &>/dev/null; then
+				:
+			elif [[ -e "${tmpdir}/${interpreter}" ]]; then
+				:
+			else
+				printf "Possibly missing '%s' for script: %s" "$interpreter" "$binary"
+			fi
+		fi
+		return 0
+	fi
+
+	# resolve sodeps
+	regex='^(|.+ )(/.+) \(0x[a-fA-F0-9]+\)'
+	while read -r line; do
+		if [[ "$line" =~ $regex ]]; then
+			sodep="${BASH_REMATCH[2]}"
+		elif [[ "$line" = *'not found' ]]; then
+			printf "binary dependency '%s' not found for '%s'" "${line%% *}" "$1"
+			((++_builderrors))
+			continue
+		fi
+
+		if [[ -f "$sodep" && ! -e "${tmpdir}${sodep}" ]]; then
+			add_file "$sodep" "$sodep"
+		fi
+	done <<<"$lddout"
+
 	return 0
 }
 
-initfs_custom_files() {
-        # shellcheck disable=SC2086 # word splitting is required
-	for file in $custom_files; do
-		if [ -f "$basedir"/$file ]; then
-			mkdir -p "$tmpdir"/${file%/*}
-			cp "$basedir"/$file "$tmpdir"/$file
+add_udev_rule() {
+	# Add an udev rules file to the initcpio image. Dependencies on binaries
+	# will be discovered and added.
+	#   $1: path to rules file (or name of rules file)
+
+	local rules="$1" rule=() key='' value='' binary=''
+
+	if [[ "${rules:0:1}" != '/' ]]; then
+		rules="$(PATH='/usr/lib/udev/rules.d:/lib/udev/rules.d' type -P "$rules")"
+	fi
+	if [[ -z "$rules" ]]; then
+		# complain about not found rules
+		return 1
+	fi
+
+	add_file "$rules" /usr/lib/udev/rules.d/"${rules##*/}"
+
+	while IFS=, read -ra rule; do
+		# skip empty lines, comments
+		# rule is an array, but we are only checking if it's an empty string
+		# shellcheck disable=SC2128
+		[[ -z "$rule" || "$rule" == @(+([[:space:]])|#*) ]] && continue
+
+		for pair in "${rule[@]}"; do
+			IFS=' =' read -r key value <<<"$pair"
+			case "$key" in
+			'RUN{program}' | 'RUN+' | 'IMPORT{program}' | 'ENV{REMOVE_CMD}')
+				# strip quotes
+				binary="${value//[\"\']/}"
+				# just take the first word as the binary name
+				binary="${binary%% *}"
+				[[ "${binary:0:1}" == '$' ]] && continue
+				if [[ "${binary:0:1}" != '/' ]]; then
+					binary="$(PATH='/usr/lib/udev:/lib/udev' type -P "$binary")"
+				fi
+				add_binary "$binary"
+				;;
+			esac
+		done
+	done <"$rules"
+}
+
+preload_builtin_modules() {
+	local modname
+	local -a path
+
+	# Prime the _addedmodules list with the builtins for this kernel. We prefer
+	# the modinfo file if it exists, but this requires a recent enough kernel
+	# and kmod>=27.
+
+	if [[ -r "$kerneldir/modules.builtin" ]]; then
+		while IFS=/ read -ra path; do
+			modname="${path[-1]%.ko}"
+			_addedmodules["${modname//-/_}"]=2
+		done <"$kerneldir/modules.builtin"
+	fi
+}
+
+run_build_hook() {
+	local hook="$1" script='' resolved=''
+	# shellcheck disable=SC2034
+	local MODULES=() BINARIES=() FILES=() SCRIPT=''
+
+	# find script in install dirs
+	# _d_install is assigned in mkinitcpio
+	# shellcheck disable=SC2154
+	# if ! script="$(PATH="$_d_install" type -P "$hook")"; then
+	#     printf "Hook '$hook' cannot be found"
+	#     return 1
+	# fi
+
+	script=$DATADIR/installs/$hook
+
+	# check for deprecation
+	# if resolved="$(readlink -e "$script")" && [[ "${script##*/}" != "${resolved##*/}" ]]; then
+	#     printf "Hook '%s' is deprecated. Replace it with '%s' in your config" \
+	#         "${script##*/}" "${resolved##*/}"
+	#     script="$resolved"
+	# fi
+
+	# source
+	unset -f build
+	# shellcheck disable=SC1090
+	if ! . "$script"; then
+		printf 'Failed to read %s' "$script"
+		return 1
+	fi
+
+	if ! declare -f install_hook >/dev/null; then
+		printf "Hook '%s' has no install_hook function" "${script}"
+		return 1
+	fi
+
+	install_hook
+
+	# if we made it this far, return successfully. Hooks can
+	# do their own printf catching if it's severe enough, and
+	# we already capture errors from the add_* functions.
+	return 0
+}
+
+install_modules() {
+	local m
+	local -a xz_comp gz_comp zst_comp
+
+	if (($# == 0)); then
+		printf "No modules were added to the image. This is probably not what you want."
+		return 0
+	fi
+
+	for m in "$@"; do
+		add_file "$m"
+		# unzip modules prior to recompression
+		if [[ "$MODULES_DECOMPRESS" == 'yes' ]]; then
+			case "$m" in
+			*.xz) xz_comp+=("$tmpdir/$m") ;;
+			*.gz) gz_comp+=("$tmpdir/$m") ;;
+			*.zst) zst_comp+=("$tmpdir/$m") ;;
+			esac
 		fi
+	done
+
+	((${#xz_comp[*]})) && xz -d "${xz_comp[@]}"
+	((${#gz_comp[*]})) && gzip -d "${gz_comp[@]}"
+	((${#zst_comp[*]})) && zstd -d --rm -q "${zst_comp[@]}"
+
+	map add_file "$kerneldir"/modules.{builtin,order}
+	depmod -b "$tmpdir" "$kver"
+
+	# remove all non-binary module.* files (except devname for on-demand module loading)
+	rm "${tmpdir}${kerneldir}"/modules.!(*.bin|devname|softdep)
+}
+
+build_image() {
+	local out="$1" compressout="$1" compress="$2" errmsg pipestatus comp
+
+	comp=${COMPRESSION_OPTIONS[*]}
+
+	case "$compress" in
+	cat) unset comp ;;
+	gzip) comp="-9 $comp" ;;
+	xz) comp="-C crc32 -T0 $comp" ;;
+	lz4) comp="--favor-decSpeed --best -lz $comp" ;;
+	zstd) comp="-T0 -19 $comp" ;;
+	esac
+
+	if [[ -f "$out" ]]; then
+		local curr_size space_left_on_device
+
+		curr_size="$(stat --format="%s" "$out")"
+		space_left_on_device="$(($(stat -f --format="%a*%S" "$out")))"
+
+		# check if there is enough space on the device to write the image to a tempfile, fallback otherwise
+		# this assumes that the new image is not more than 1¼ times the size of the old one
+		(($((curr_size + (curr_size / 4))) < space_left_on_device)) && compressout="$out".tmp
+	fi
+
+	pushd "$tmpdir" >/dev/null || return
+
+	# Reproducibility: set all timestamps to 0
+	find . -mindepth 1 -execdir touch -hcd "@0" "{}" +
+
+	# If this pipeline changes, |pipeprogs| below needs to be updated as well.
+	find . -mindepth 1 -printf '%P\0' |
+		sort -z |
+		LANG=C bsdtar --uid 0 --gid 0 --null -cnf - -T - |
+		LANG=C bsdtar --null -cf - --format=newc @- |
+		$compress "${comp[@]}" >"$compressout"
+
+	pipestatus=("${PIPESTATUS[@]}")
+	pipeprogs=('find' 'sort' 'bsdtar (step 1)' 'bsdtar (step 2)' "$compress")
+
+	popd >/dev/null || return
+
+	for ((i = 0; i < ${#pipestatus[*]}; ++i)); do
+		if ((pipestatus[i])); then
+			errmsg="${pipeprogs[i]} reported an error"
+			break
+		fi
+	done
+
+	if ((_builderrors)); then
+		printf "errors were encountered during the build. The image may not be complete."
+	fi
+
+	if [[ -n "$errmsg" ]]; then
+		printf "Image generation FAILED: '%s'" "$errmsg"
+		return 1
+	elif ((_builderrors == 0)); then
+		printf "Image generation successful"
+	fi
+
+	# sync and rename as we only wrote to a tempfile so far to ensure consistency
+	if [[ "$compressout" != "$out" ]]; then
+		sync -d -- "$compressout"
+		mv -f -- "$compressout" "$out"
+	fi
+}
+
+find_module_from_symbol() {
+	# Find a module based off on the symbol
+	#   $1: symbol to find
+	#   $2: the directory to look at
+	#
+	# The directory can either be a:
+	#   absolute directory with a leading /
+	#   A subdirectory with a = prefix, like =drivers/hid
+
+	local moduledir symbols="$1" directories=("${@:2}")
+	for dir in "${directories[@]}"; do
+		case "${dir::1}" in
+		=) moduledir="/lib/modules/$kver/kernel/${dir:1}" ;;
+		/*) moduledir="$dir" ;;
+		esac
+
+		decomp_to_stdout() {
+			case "$1" in
+			*.xz) xz -d "$1" -c ;;
+			*.gz) gzip -d "$1" -c ;;
+			*.zst) zstd -q -d "$1" -c ;;
+			esac
+		}
+
+		while read -r -d '' mod; do
+			if decomp_to_stdout "$mod" | grep -Eq "^($symbols)" &>/dev/null; then
+				mod=${mod##*/}
+				mod="${mod%.ko*}"
+				printf '%s\n' "${mod//-/_}"
+			fi
+		done < <(find "$moduledir" -name '*.ko*' -print0 2>/dev/null)
 	done
 }
 
-initfs_cpio() {
-	if [ -n "$list_sources" ]; then
-		(cd "$tmpdir" && find . | sort)
-		return
-	fi
-	rm -f $outfile
+add_module_from_symbol() {
+	local mods
+	mapfile -t mods < <(find_module_from_symbol "$@")
+	map add_module "${mods[@]}"
+}
+initfs_base() {
+	local i='' glob='' file=''
+	install -dm755 "$tmpdir"/{android,apex,hd,iso,proc,sys,dev,tmp,var,etc,usr/{lib/{modules,firmware},bin},sfs,mnt,hooks}
+	ln -s "usr/lib" "$tmpdir/lib"
+	ln -s "bin" "$tmpdir/usr/sbin"
+	ln -s "usr/bin" "$tmpdir/bin"
+	ln -s "usr/bin" "$tmpdir/sbin"
 
-	if [ -n "$SOURCE_DATE_EPOCH" ]; then
-		# normalize timestamps
-		find "$tmpdir" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
-	fi
+	# local oldpwd="$PWD"
+	# cd "${basedir}"
+	# lddtree -R "$basedir" -l --no-auto-root $(feature_files "$basedir" files) |
+	# 	sed -e "s|^$basedir||" |
+	# 	sort -u |
+	# 	cpio --quiet -pdm "$tmpdir" ||
+	# 	return 1
 
-	umask 0077
-	(cd "$tmpdir" && find . | sort | cpio --quiet --renumber-inodes -o -H newc | $comp) > "$outfile"
+	# # copy init
+	# cd "$startdir"
+	# install -m755 "$init" "$tmpdir"/init || return 1
+	# # for i in "$passwd" "$group"; do
+	# # 	install -Dm644 "$i" "$tmpdir"/etc/${i##*/} || return 1
+	# # done
+	# cd "$oldpwd"
+
+	# kernel module dir
+	install -dm755 "$tmpdir/usr/lib/modules/$kver/kernel"
+
+	# mount tables
+	ln -s ../proc/self/mounts "$tmpdir/etc/mtab"
+	: >"$tmpdir/etc/fstab"
+
+	# add a blank ld.so.conf to keep ldconfig happy
+	: >"$tmpdir/etc/ld.so.conf"
+
 }
 
-cmd_exists() {
-	local cmd="$1"
-	if ! command -v "$cmd" >/dev/null 2>&1; then
-		echo "Command \"$cmd\" is not available."
-		exit 1
-	fi
+initfs_cpscripts() {
+	# cp -r /usr/lib/mkinitfs/scripts "$tmpdir"
+
+	arrayize_config
+
+	preload_builtin_modules
+	map run_build_hook "${HOOKS[@]}"
+	map add_module "${MODULES[@]}"
+	map add_binary "${BINARIES[@]}"
+	map add_file "${FILES[@]}"
+	{
+		# When MODULES is not an array (but instead implicitly converted at
+		# startup), sourcing the config causes the string value of MODULES
+		# to be assigned as MODULES[0]. Avoid this by explicitly unsetting
+		# MODULES before re-sourcing the config.
+		unset MODULES
+
+		# shellcheck disable=SC1091
+		. $config
+
+		# arrayize MODULES if necessary.
+		[[ ${MODULES@a} != *a* ]] && read -ra MODULES <<<"${MODULES//-/_}"
+
+		for mod in "${MODULES[@]%\?}"; do
+			mod="${mod//-/_}"
+			# only add real modules (2 == builtin)
+			((_addedmodules["$mod"] == 1)) && add+=("$mod")
+		done
+		((${#add[*]})) && printf 'MODULES="%s"\n' "${add[*]}"
+
+		printf '%s="%s"\n' \
+			'EARLYHOOKS' "${_runhooks['early']# }" \
+			'HOOKS' "${_runhooks['hooks']# }" \
+			'LATEHOOKS' "${_runhooks['late']# }" \
+			'BOOT_PART' "$BOOT_PART"
+	} >"$tmpdir/config"
+
+	install_modules "${!_modpaths[@]}"
+
+	# this is simply a nice-to-have -- it doesn't matter if it fails.
+	ldconfig -r "$tmpdir" &>/dev/null
+	# remove /var/cache/ldconfig/aux-cache for reproducability
+	rm -rf -- "$tmpdir"/var/cache/*
+
+	umask 0077
+
+	build_image "$outfile" "$COMPRESSION"
+}
+
+# find_kmod_deps() {
+# 	awk -v prepend="/lib/modules/$kernel/" -v modulesdep="${basedir}lib/modules/$kernel/modules.dep" '
+# function recursedeps(k,		j, dep) {
+# 	if (k in visited)
+# 		return;
+# 	visited[k] = 1;
+# 	split(deps[k], dep, " ");
+# 	for (j in dep)
+# 		recursedeps(dep[j]);
+# 	print(prepend k);
+# }
+
+# BEGIN {
+# 	if (modulesdep == "")
+# 		modulesdep="modules.dep";
+# 	FS = ": ";
+# 	while ( (getline < modulesdep) > 0) {
+# 		if (substr($0,1,1) == "/") {
+# 			gsub(prepend, "", $1);
+# 			gsub(prepend, "", $2);
+# 		}
+# 		deps[$1] = $2;
+# 	}
+# }
+
+# {
+# 	mod[$0] = 1;
+# }
+
+# END {
+# 	for (i in mod)
+# 		recursedeps(i);
+# }'
+# }
+
+# find_kmods() {
+# 	local oldpwd="$PWD"
+# 	cd "$kerneldir" || return 1
+# 	for file in $(feature_files "${kerneldir}/" modules); do
+# 		echo "${file#"${kerneldir%/}"/}"
+# 	done | find_kmod_deps
+# 	cd "$oldpwd"
+# }
+
+# initfs_kmods() {
+# 	[ -z "$nokernel" ] || return 0
+# 	local glob='' file='' files='' dirs=''
+# 	rm -rf "$tmpdir"/lib/modules
+# 	# make sure we have modules.dep
+# 	if ! [ -f "$kerneldir"/modules.dep ]; then
+# 		depmod -b "${basedir}" $kernel
+# 	fi
+# 	local oldpwd="$PWD"
+# 	cd "${basedir}"
+# 	for file in $(find_kmods); do
+# 		echo "${file#/}"
+# 		# DO NOT return with 1 if there are no custom modules for initramfs
+# 	done | sort -u | cpio --quiet -pdm "$tmpdir"
+# 	mkdir -p "$tmpdir"/lib/modules/$kernel/
+# 	for file in modules.order modules.builtin modules.builtin.modinfo; do
+# 		if [ -f "$kerneldir"/$file ]; then
+# 			cp "$kerneldir"/$file "$tmpdir"/lib/modules/$kernel/
+# 		fi
+# 	done
+# 	depmod $kernel -b "$tmpdir"
+# 	cd "$oldpwd"
+# }
+
+# initfs_firmware() {
+# 	[ -z "$nokernel" ] || return 0
+# 	rm -rf "$tmpdir"/lib/firmware
+# 	mkdir -p "$tmpdir"/lib/firmware
+# 	# Verify if there are initfs modules
+# 	_modules=$(find "$tmpdir"/lib/modules -type f -name "*.ko*" -print -quit)
+# 	[ -n "$_modules" ] || return 0
+# 	find "$tmpdir"/lib/modules -type f -name "*.ko*" | xargs modinfo -k $kernel -F firmware | sort -u | while read FW; do
+# 		[ -e "${basedir}/lib/firmware/${FW}" ] && install -pD "${basedir}/lib/firmware/${FW}" "$tmpdir"/lib/firmware/$FW
+# 	done
+# 	return 0
+# }
+
+# initfs_custom_files() {
+# 	# shellcheck disable=SC2086 # word splitting is required
+# 	for file in $custom_files; do
+# 		if [ -f "$basedir"/$file ]; then
+# 			mkdir -p "$tmpdir"/${file%/*}
+# 			cp "$basedir"/$file "$tmpdir"/$file
+# 		fi
+# 	done
+# }
+
+# initfs_cpio() {
+# 	if [ -n "$list_sources" ]; then
+# 		(cd "$tmpdir" && find . | sort)
+# 		return
+# 	fi
+# 	rm -f $outfile
+
+# 	if [ -n "$SOURCE_DATE_EPOCH" ]; then
+# 		# normalize timestamps
+# 		find "$tmpdir" -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
+# 	fi
+
+# 	umask 0077
+# 	(cd "$tmpdir" && find . | sort | cpio --quiet --renumber-inodes -o -H newc | $comp) >"$outfile"
+# }
+
+# cmd_exists() {
+# 	local cmd="$1"
+# 	if ! command -v "$cmd" >/dev/null 2>&1; then
+# 		echo "Command \"$cmd\" is not available."
+# 		exit 1
+# 	fi
+# }
+
+list_hooks() {
+	ls "$DATADIR/installs"
+	exit
 }
 
 usage() {
 	cat <<EOF
-usage: mkinitfs [-hkKLln] [-b basedir] [-c configfile] [-F features] [-f fstab]
-		[-C initramfs compression] [-i initfile] [-o outfile]
-		[-P featuresdir] [-t tempdir] [kernelversion]
+usage: ${0##*/} [options]
 options:
-	-b  prefix files and kernel modules with basedir
-	-c  use configfile instead of $config
-	-C  initramfs compression (gzip|xz|zstd|lz4|none defaults to $COMPRESSION)
-	-f  use fstab instead of $fstab
-	-F  use specified features
+	-A  add specified hooks, comma separated, to image
+	-c  use config file (default: $config)
 	-h  print this help
-	-i  use initfile as init instead of $init
+	-K  use kernel version (default: $(uname -r))
 	-k  keep tempdir
-	-K  copy also host keys to initramfs
-	-l  only list files that would have been used
-	-L  list available features
-	-n  don't include kernel modules or firmware
+	-L  list available hooks
+	-m  use datadir (default: $DATADIR)
 	-o  set another outfile
-	-P  prepend features.d search path
-	-q  Quiet mode
-	-s  Include modloop signature
+	-q  quiet mode
+	-r  use as root directory
+	-S  skip hooks, comma separated
 	-t  use tempdir when creating initramfs image
+	-z  initramfs compression (gzip|xz|zstd|lz4|cat defaults to $COMPRESSION)
 
 EOF
 	exit 1
@@ -206,68 +891,64 @@ EOF
 # main
 features_dirs=${features_dir:-"${basedir%/:-}/${SYSCONFDIR#/}/features.d"}
 
-while getopts "b:c:C:f:F:hi:kKLlno:P:qs:t:" opt; do
+while getopts "A:c:hK:kLm:no:qr:S:t:z:" opt; do
 	case "$opt" in
-		b) basedir="$OPTARG";;
-		c) config="$OPTARG";;
-		C) COMPRESSION="$OPTARG";;
-		F) myfeatures="$OPTARG";;
-		f) fstab="$OPTARG";;
-		h) usage;;
-		i) init=$OPTARG;;
-		k) keeptmp=1;;
-		K) hostkeys=1;;
-		L) list_features=1;;
-		l) list_sources=1;;
-		n) nokernel=1;;
-		o) outfile="$OPTARG";;
-		P) features_dirs="$OPTARG $features_dirs";;
-		q) quiet=1;;
-		s) modloop_sig="$OPTARG";;
-		t) tmpdir="$OPTARG";;
-		*) usage;;
+	A) HOOKS="$HOOKS ${OPTARG//,/ }" ;;
+	c) config=$OPTARG ;;
+	h) usage ;;
+	k) keeptmp=1 ;;
+	K) kver=$OPTARG ;;
+	L) list_hooks ;;
+	m) DATADIR=$OPTARG ;;
+	o) outfile=$OPTARG ;;
+	q) quiet=1 ;;
+	r) basedir=$OPTARG ;;
+	S) HOOKS="${HOOKS//$OPTARG/}" ;;
+	t) tmpdir="$OPTARG" ;;
+	z) COMPRESSION="$OPTARG" ;;
+	*) usage ;;
 	esac
 done
-shift $(( OPTIND - 1 ))
+shift $((OPTIND - 1))
 
 . "$(readlink -f "$config")"
-[ -n "$myfeatures" ] && features="$myfeatures"
 
-if [ -n "$list_features" ]; then
-	for dir in $features_dirs; do
-		for i in "$dir"/*.files "$dir"/*.modules; do
-			[ -e "$i" ] || continue
-			file=${i##*/}
-			echo "${file%.*}"
-		done
-	done | sort -u
-	exit 0
-fi
+# if [ -n "$list_features" ]; then
+# 	for dir in $features_dirs; do
+# 		for i in "$dir"/*.files "$dir"/*.modules; do
+# 			[ -e "$i" ] || continue
+# 			file=${i##*/}
+# 			echo "${file%.*}"
+# 		done_f_functions
+# 	done | sort -u
+# 	exit 0
+# fi
 
 basedir="${basedir%/}/"
 [ "${basedir}" = "${basedir#/}" ] && basedir="${PWD}/${basedir}"
 
+[[ -e /proc/self/mountinfo ]] || die "/proc must be mounted!"
+[[ -e /dev/fd ]] || die "/dev must be mounted!"
 
-if [ -z "$nokernel" ]; then
-	kver="$1"
-	[ "$1" ] || kver="$(uname -r)"
-	kernel="vmlinuz-$kver"
-	kerneldir="${basedir}lib/modules/$kver"
-fi
+# if [ -z "$nokernel" ]; then
+kver=${kver:-"$(uname -r)"}
+kernel="vmlinuz-$kver"
+kerneldir="${basedir}lib/modules/$kver"
+# fi
 
-if [ -z "$outfile" ]; then
-	outfile="${basedir}boot/initramfs-${kver:-"generic"}.img"
-fi
+# if [ -z "$outfile" ]; then
+outfile=${outfile:-"${basedir}boot/initramfs-${kver}.img"}
+# fi
 
-if [ -z "$nokernel" ] && [ ! -d "$kerneldir" ]; then
+if [ ! -d "$kerneldir" ]; then
 	echo "$kerneldir does not exist or is not a directory"
 	exit 1
 fi
 
-if [ -n "$DEBUG_KMOD" ]; then
-	find_kmods
-	exit 0
-fi
+# if [ -n "$DEBUG_KMOD" ]; then
+# 	find_kmods
+# 	exit 0
+# fi
 
 if [ -z "$tmpdir" ]; then
 	tmpdir=$(mktemp -d /tmp/mkinitfs.XXXXXX)
@@ -283,21 +964,35 @@ if [ -z "$list_sources" ] && [ -z "$quiet" ]; then
 	echo "==> initramfs: creating $outfile"
 fi
 
-case "$COMPRESSION" in
-	gzip) comp="$(command -v pigz 2>/dev/null || echo gzip) -9" ;;
-	xz) cmd_exists xz; comp="xz -C crc32 -T 0" ;;
-	zstd) cmd_exists zstd; comp="zstd -19" ;;
-	lz4) cmd_exists lz4; comp="lz4 --favor-decSpeed --best -lz" ;;
-	none) comp="cat";;
-	*) echo "Initramfs compression \"$COMPRESSION\" not supported!"; exit 1 ;;
-esac
+MODULES_DECOMPRESS="${MODULES_DECOMPRESS:-"yes"}"
 
-initfs_base \
-	&& initfs_cpscripts \
-	&& initfs_kmods \
-	&& initfs_firmware \
-	&& initfs_custom_files \
-	&& initfs_cpio
+# case "$COMPRESSION" in
+# gzip) comp="$(command -v pigz 2>/dev/null || echo gzip) -9" ;;
+# xz)
+# 	cmd_exists xz
+# 	comp="xz -C crc32 -T 0"
+# 	;;
+# zstd)
+# 	cmd_exists zstd
+# 	comp="zstd -19"
+# 	;;
+# lz4)
+# 	cmd_exists lz4
+# 	comp="lz4 --favor-decSpeed --best -lz"
+# 	;;
+# none) comp="cat" ;;
+# *)
+# 	echo "Initramfs compression \"$COMPRESSION\" not supported!"
+# 	exit 1
+# 	;;
+# esac
+
+initfs_base &&
+	initfs_cpscripts
+# initfs_kmods &&
+# initfs_firmware &&
+# initfs_custom_files &&
+# initfs_cpio
 rc=$?
 
 # cleanup

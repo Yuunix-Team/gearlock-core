@@ -3,6 +3,13 @@
 checkfs() { blkid -o value -s TYPE "$1"; }
 
 install_hook() {
+  add_binary busybox
+  add_file "/usr/share/gearlock/mkinitfs/init" "/init"
+
+  add_file /lib/mdev
+  map add_file /etc/modprobe.d/*.conf
+  add_file /etc/mdev.conf
+
   add_module "loop"
 
   . /etc/gearlock.conf
