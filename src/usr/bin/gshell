@@ -22,15 +22,15 @@ for arg in "$@"; do
 done
 
 case "$ROOT" in
-LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) ROOT=$(resolve_device "$ROOT") ;;
+LABEL=* | UUID=*) ROOT=$(resolve_device "$ROOT") ;;
 esac
 
 case "$SYSTEM" in
-LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) SYSTEM=$(resolve_device "$SYSTEM") ;;
+LABEL=* | UUID=*) SYSTEM=$(resolve_device "$SYSTEM") ;;
 esac
 
 case "$DATA" in
-LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*) DATA=$(resolve_device "$DATA") ;;
+LABEL=* | UUID=*) DATA=$(resolve_device "$DATA") ;;
 esac
 
 export ROOT SRC SYSTEM DATA

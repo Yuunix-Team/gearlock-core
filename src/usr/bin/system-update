@@ -3,6 +3,7 @@
 MODE=$(/usr/lib/gearlock/sysup/checkab)
 SIG=
 SYSIMAGE=
+UNMOUNT_LIST=
 
 die() { echo "==> ERROR: $*" && exit 1; }
 
@@ -30,7 +31,7 @@ else
   [ "$confirm" = y ] || exit
 fi
 
-/usr/lib/gearlock/sysup/convert "$SYSIMAGE" ||
+SYSIMAGE=$(/usr/lib/gearlock/sysup/convert "$SYSIMAGE") ||
   die "Not enough space to extract/compress '$SYSIMAGE'"
 
 /usr/lib/gearlock/sysup/reinstall_patch "$SYSIMAGE" ||
@@ -38,3 +39,5 @@ fi
 
 SYSUP_STATUS=$(/usr/lib/gearlock/sysup/"sysup_$MODE" "$SYSIMAGE")
 [ $? = 0 ] || die "$SYSUP_STATUS"
+
+[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST

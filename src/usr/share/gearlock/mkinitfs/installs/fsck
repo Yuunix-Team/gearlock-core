@@ -44,17 +44,24 @@ install_hook() {
   [ "$ROOT" ] && add_fsck "$(checkfs "$ROOT")"
 
   case "$SYSTEM" in
-  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+  /dev/* | LABEL=* | UUID=*)
     add_fsck "$(checkfs "$(resolve_device "$SYSTEM")")"
     ;;
-  *) add_fsck "ext4" ;;
+  *.*) add_fsck "ext4" ;;
   esac
 
   case "$DATA" in
-  /dev/* | LABEL=* | PARLABEL=* | UUID=* | PARTUUID=*)
+  /dev/* | LABEL=* | PARLABEL=* | UUID=*)
     add_fsck "$(checkfs "$(resolve_device "$DATA")")"
     ;;
-  *) add_fsck "$(checkfs "$SRCDIR/$DATA")" ;;
+  *.img) add_fsck "$(checkfs "$SRCDIR/$DATA")" ;;
+  esac
+
+  case "$GEARLOCK" in
+  /dev/* | LABEL=* | PARLABEL=* | UUID=*)
+    add_fsck "$(checkfs "$(resolve_device "$GEARLOCK")")"
+    ;;
+  *.img) add_fsck "$(checkfs "$SRCDIR/$GEARLOCK")" ;;
   esac
 
   if [ "$added" ]; then

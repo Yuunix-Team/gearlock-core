@@ -26,7 +26,7 @@ install_hook() {
   [ "$ROOT" ] && add_module "$(checkfs "$ROOT")"
 
   case "$SYSTEM" in
-  /dev/* | LABEL=* | PARTLABEL=* | UUID=* | PARTUUID=*)
+  /dev/* | LABEL=* | UUID=*)
     SYSTEM=$(resolve_device "$SYSTEM")
     add_module "$(checkfs "$SYSTEM")"
     ;;
@@ -40,7 +40,7 @@ install_hook() {
   esac
 
   case "$DATA" in
-  /dev/* | LABEL=* | PARLABEL=* | UUID=* | PARTUUID=*)
+  /dev/* | LABEL=* | PARLABEL=* | UUID=*)
     DATA=$(resolve_device "$DATA")
     ;;
   *) DATA=$SRCDIR/$DATA ;;

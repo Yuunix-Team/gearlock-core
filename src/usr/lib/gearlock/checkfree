@@ -1,3 +1,9 @@
 #!/bin/bash
 
-df -k --sync --output=avail "$SRCDIR"
+if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
+  TARGET=$SRCDIR
+else
+  TARGET=/data/local/tmp
+fi
+
+df -k --sync --output=avail "$TARGET"

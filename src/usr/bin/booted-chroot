@@ -31,6 +31,6 @@ chroot_setup() {
 
 chroot_setup "$chrootdir" || die "Failed to setup chroot %s" "$chrootdir"
 
-SHELL=/bin/sh chroot "$chrootdir" /bin/sh -c " \
+SHELL=/bin/sh chroot "$chrootdir" /bin/gshell -c " \
 echo -e \"nameserver $(getprop net.dns1 || echo '8.8.8.8')\" > /etc/resolv.conf; \
-${*:-/bin/gshell}"
+${*:-/bin/bash}"

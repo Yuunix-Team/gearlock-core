@@ -1,1 +1,6 @@
 #!/bin/bash
+
+case "$1" in
+UUID=* | LABEL=*) findfs "$1" ;;
+*) echo "$1" ;;
+esac
