@@ -12,12 +12,14 @@ export TEXTDOMAIN=grub
 export TEXTDOMAINDIR="${datarootdir}/locale"
 
 prop() { echo -n "${1#*=}"; }
+fprop() { grep -E "ro.$1" $BUILDPROP; }
+bprop() { prop "$(fprop "build.$1=")"; }
 
 CLASS="--class android --class os"
-buildprop=/system/build.prop
-buildver=$(grep -E "ro.([a-z]*).version" "$buildprop" | grep -v build)
-ANDROID_VER=$(prop "$(grep "ro.build.version.release=" "$buildprop")")
-ANDROID_VER_MAJOR=${ANDROID_VER%%.*}
+BUILDPROP=/system/build.prop
+buildver=$(fprop "([a-z]*).version" | grep -v build)
+# ANDROID_VER=$(prop "$(grep "ro.build.version.release=" "$BUILDPROP")")
+# ANDROID_VER_MAJOR=${ANDROID_VER%%.*}
 # SRC=${SRC:-"$(sed -e 's/^.*SRC=//' -e 's/ .*$//' /proc/cmdline)"}
 
 MODE=$(/usr/lib/gearlock/sysup/checkab)
@@ -26,11 +28,11 @@ IFS="
 "
 for ver in $buildver; do
 	case $ver in
-	ro.bliss.version*) OS="Bliss OS $(prop "$ver")" && break ;;
-	ro.phoenix.version.code*) OS="Phoenix OS $(prop "$ver")" && break ;;
-	ro.primeos.version.name*) OS="Prime OS $(prop "$ver")" && break ;;
-	ro.lineage.version*) OS="Lineage OS $(prop "$ver")" ;;
-	*) OS="AOSP $ANDROID_VER $(prop "$(grep "ro.build.flavor=" $buildprop)")" ;;
+	ro.bliss.*) OS="Bliss OS $(prop "$ver")" && break ;;
+	ro.phoenix.*) OS="Phoenix OS $(prop "$ver")" && break ;;
+	ro.primeos.*) OS="Prime OS $(prop "$ver")" && break ;;
+	ro.lineage.*) OS="Lineage OS $(prop "$ver")" ;;
+	*) OS="AOSP $(bprop "version.release") $(bprop "flavor")" ;;
 	esac
 done
 unset IFS
@@ -43,9 +45,6 @@ if [ "$ROOT" ]; then
 		ROOT=$(losetup "${ROOT}" | sed -e "s/^[^(]*(\([^)]\+\)).*/\1/")
 		;;
 	esac
-
-	: ${GRUB_CMDLINE_ANDROID_RECOVERY:=true}
-	: ${GRUB_CMDLINE_ANDROID_FRESHBOOT:=true}
 
 	ROOT_UUID=$(blkid -o value -s UUID "$ROOT")
 	ROOT_FS=$(blkid -o value -s TYPE "$ROOT")
@@ -324,7 +323,7 @@ gen_menuentry() {
 		done
 
 		if [ "$is_top_level" = "true" ] && [ "$GRUB_DISABLE_SUBMENU" != "true" ]; then
-			android_entry "$kpath" "$ipath" default $1
+			android_entry "$kpath" "$ipath" default "$1"
 
 			submenu_indentation="$grub_tab"
 
@@ -337,8 +336,9 @@ gen_menuentry() {
 		fi
 
 		android_entry "$kpath" "$ipath" advanced "$1"
-		android_entry "$kpath" "$ipath" freshboot "$1"
-		[ "$GRUB_DISABLE_RECOVERY" = "true" ] ||
+		[ "$GRUB_DISABLE_ANDROID_FRESHBOOT" = "true" ] ||
+			android_entry "$kpath" "$ipath" freshboot "$1"
+		[ "$GRUB_DISABLE_ANDROID_RECOVERY" = "true" ] ||
 			android_entry "$kpath" "$ipath" recovery "$1"
 	done
 
@@ -350,13 +350,8 @@ gen_menuentry() {
 }
 
 case "$MODE" in
-ab)
-	gen_menuentry system_a
-	gen_menuentry system_b
-	;;
-*)
-	gen_menuentry ''
-	;;
+ab) for i in a b; do gen_menuentry "system_$i${SYSTEM_TYPE:+".$SYSTEM_TYPE"}"; done ;;
+*) gen_menuentry '' ;;
 esac
 
 echo "$title_correction_code"

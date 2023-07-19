@@ -4,10 +4,6 @@
 
 export PATH="/bin/:/system/bin:/system/xbin"
 
-export SRCDIR
-export LOG
-export SYSTEM_TYPE
-
 SYSTEM=system.img
 DATA=data.img
 
@@ -42,6 +38,13 @@ case "$BOOT_PART" in
 LABEL=* | UUID=*) BOOT_PART=$(resolve_device "$BOOT_PART") ;;
 esac
 
-export ROOT BOOT_PART SRC SYSTEM DATA GEARLOCK
+export ROOT \
+  BOOT_PART \
+  SRC SYSTEM \
+  DATA \
+  GEARLOCK \
+  SRCDIR \
+  LOG \
+  SYSTEM_TYPE
 
 bash $@
