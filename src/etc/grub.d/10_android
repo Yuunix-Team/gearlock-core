@@ -1,88 +1,186 @@
 #!/bin/bash
 set -e
 
+prefix="/usr"
+exec_prefix="/usr"
+datarootdir="/usr/share"
+
 . "$pkgdatadir/grub-mkconfig_lib"
+. /bin/gshell
 
 export TEXTDOMAIN=grub
 export TEXTDOMAINDIR="${datarootdir}/locale"
 
+prop() { echo -n "${1#*=}"; }
+
 CLASS="--class android --class os"
-OS="Android"
+buildprop=/system/build.prop
+buildver=$(grep -E "ro.([a-z]*).version" "$buildprop" | grep -v build)
+ANDROID_VER=$(prop "$(grep "ro.build.version.release=" "$buildprop")")
+ANDROID_VER_MAJOR=${ANDROID_VER%%.*}
+# SRC=${SRC:-"$(sed -e 's/^.*SRC=//' -e 's/ .*$//' /proc/cmdline)"}
 
-# Default to disabling partition uuid support to maintian compatibility with
-# older kernels.
-: "${GRUB_DISABLE_LINUX_PARTUUID:=true}"
+MODE=$(/usr/lib/gearlock/sysup/checkab)
 
-# Android x86 supported file systems
-# Note that by default, Android initrds don't support btrfs and some other
-# filesystems
-: "${GRUB_ANDROID_SUPPORTED_FS:="ext2 ext3 ext4 vfat exfat ntfs"}"
-
-# Excluded paths
-# Start with a slash, separated by ',', ending slashes are not needed
-: "${GRUB_ANDROID_EXCLUDE:="/bin,/boot/efi,/efi,/EFI,/dev,/etc,/lib,/lib64,/lib32,/proc,/run,/sbin,/sys,/usr,/var,/tmp,/Program Files,/Program Files (x86),/ProgramData,/Windows"}"
-
-# Search image names
-: "${GRUB_ANDROID_SEARCH:="system system.img system.sfs system.efs"}"
-
-# Search recursiveness depth
-: "${GRUB_ANDROID_SEARCH_DEPTH:=3}"
-
-# Default parameters
-: "${GRUB_CMDLINE_ANDROID:=""}"
-
-
-. /etc/default/grub
-
-DEPTH=$GRUB_ANDROID_SEARCH_DEPTH
-
-po=
-for f in ${GRUB_ANDROID_SEARCH}; do
-	INCLUDE="$INCLUDE $po -name \"$f\""
-	po="-o"
+IFS="
+"
+for ver in $buildver; do
+	case $ver in
+	ro.bliss.version*) OS="Bliss OS $(prop "$ver")" && break ;;
+	ro.phoenix.version.code*) OS="Phoenix OS $(prop "$ver")" && break ;;
+	ro.primeos.version.name*) OS="Prime OS $(prop "$ver")" && break ;;
+	ro.lineage.version*) OS="Lineage OS $(prop "$ver")" ;;
+	*) OS="AOSP $ANDROID_VER $(prop "$(grep "ro.build.flavor=" $buildprop)")" ;;
+	esac
 done
+unset IFS
 
-# check cpu architecure
-machine=$(uname -m)
-case "$machine" in
-i?86 | x86_*) : x86 ;;
-arm*) : arm ;;
-*)
-	echo "ERROR: Unsupported processor architecture!" >&2
-	exit
-	;;
+# loop-AES arranges things so that /dev/loop/X can be our root device, but
+# the initrds that Linux uses don't like that.
+if [ "$ROOT" ]; then
+	case ${ROOT} in
+	/dev/loop/* | /dev/loop[0-9])
+		ROOT=$(losetup "${ROOT}" | sed -e "s/^[^(]*(\([^)]\+\)).*/\1/")
+		;;
+	esac
+
+	: ${GRUB_CMDLINE_ANDROID_RECOVERY:=true}
+	: ${GRUB_CMDLINE_ANDROID_FRESHBOOT:=true}
+
+	ROOT_UUID=$(blkid -o value -s UUID "$ROOT")
+	ROOT_FS=$(blkid -o value -s TYPE "$ROOT")
+	# btrfs may reside on multiple devices. We cannot pass them as value of root= parameter
+	# and mounting btrfs requires user space scanning, so force UUID in this case.
+	if ! { [ -z "$ROOT_UUID" ] || [ "$GRUB_DISABLE_LINUX_UUID" = "true" ] ||
+		[ -e "$ROOT" ] && uses_abstraction "$ROOT" lvm; }; then
+		ROOT=UUID=$ROOT_UUID
+	fi
+
+	case "$ROOT_FS" in
+	btrfs)
+		rootsubvol="$(make_system_path_relative_to_its_root /)"
+		rootsubvol="${rootsubvol#/}"
+		if [ "x${rootsubvol}" != x ]; then
+			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID ROOTFLAGS=subvol=${rootsubvol}"
+		fi
+		;;
+	zfs)
+		rpool=$(${grub_probe} --device "$ROOT" --target=fs_label 2>/dev/null || true)
+		bootfs="$(make_system_path_relative_to_its_root / | sed -e "s,@$,,")"
+		ROOT="ZFS=${rpool}${bootfs%/}"
+		;;
+	esac
+fi
+
+case "$BOOT_PART" in
+/dev/*) BOOT_DEVICE=$BOOT_PART ;;
+*) BOOT_DEVICE=$ROOT ;;
 esac
-GENKERNEL_ARCH=$_
-
-# check if cpu is 64 bit capable
-LM=
-grep -oqw 'lm' /proc/cpuinfo && LM=1
-
-# check if kernel supports ntfs3
-modinfo ntfs3 >/dev/null && NTFS=ntfs3 || NTFS=ntfs-3g
 
 sub_indent() { echo -e "$submenu_indentation$*"; }
-gfind() { grep "$2" <<<"${1}"; }
-gprop() {
-	local prop
-	prop=$(gfind "${1}" "ro.$2=")
-	echo "${prop##*=}"
-}
-gver() { gprop "${1}" "$2.version${3:+.$3}"; }
+
+# android_entry() {
+# 	os="$1"
+# 	version="$2"
+# 	type="$3"
+# 	args="$4"
+
+# 	if [ -z "$boot_device_id" ]; then
+# 		boot_device_id="$(grub_get_device_id "$ROOT")"
+# 	fi
+# 	if [ "$type" != simple ]; then
+# 		[ "$type" = advanced ] && type=''
+# 		title="$(gettext_printf "%s, with Linux %s%s" "${os}" "${version}" "${type:+" ($type)"}")"
+# 		if [ "$title" = "$GRUB_ACTUAL_DEFAULT" ] || [ "Previous Linux versions>$title" = "$GRUB_ACTUAL_DEFAULT" ]; then
+# 			replacement_title="Advanced options for ${OS//>/>>}>${title//>/>>}"
+# 			quoted="$(echo "$GRUB_ACTUAL_DEFAULT" | grub_quote)"
+# 			title_correction_code="${title_correction_code}if [ \"x\$default\" = '$quoted' ]; then default='$(echo "$replacement_title" | grub_quote)'; fi;"
+# 			grub_warn "$(gettext_printf "Please don't use old title \`%s' for GRUB_DEFAULT, use \`%s' (for versions before 2.00) or \`%s' (for 2.00 or later)" "$GRUB_ACTUAL_DEFAULT" "$replacement_title" "android-advanced-$boot_device_id>android-$version-$type-$boot_device_id")"
+# 		fi
+# 		echo "menuentry '$(echo "$title" | grub_quote)' ${CLASS} \$menuentry_id_option 'android-$version-$type-$boot_device_id' {" | sed "s/^/$submenu_indentation/"
+# 	else
+# 		echo "menuentry '$(echo "$os" | grub_quote)' ${CLASS} \$menuentry_id_option 'android-simple-$boot_device_id' {" | sed "s/^/$submenu_indentation/"
+# 	fi
+# 	if [ "$type" != recovery ]; then
+# 		save_default_entry | grub_add_tab
+# 	fi
+
+# 	# Use ELILO's generic "efifb" when it's known to be available.
+# 	# FIXME: We need an interface to select vesafb in case efifb can't be used.
+# 	if [ -z "$GRUB_GFXPAYLOAD_LINUX" ]; then
+# 		echo "	load_video" | sed "s/^/$submenu_indentation/"
+# 		if grep -qx "CONFIG_FB_EFI=y" "${config}" 2>/dev/null &&
+# 			grep -qx "CONFIG_VT_HW_CONSOLE_BINDING=y" "${config}" 2>/dev/null; then
+# 			echo "	set gfxpayload=keep" | sed "s/^/$submenu_indentation/"
+# 		fi
+# 	else
+# 		if [ "$GRUB_GFXPAYLOAD_LINUX" != text ]; then
+# 			echo "	load_video" | sed "s/^/$submenu_indentation/"
+# 		fi
+# 		echo "	set gfxpayload=$GRUB_GFXPAYLOAD_LINUX" | sed "s/^/$submenu_indentation/"
+# 	fi
+
+# 	echo "	insmod zstd" | sed "s/^/$submenu_indentation/"
+
+# 	if [ "$dirname" = "/" ]; then
+# 		if [ -z "$prepare_root_cache" ]; then
+# 			prepare_root_cache="$(prepare_grub_to_access_device "$ROOT" | grub_add_tab)"
+# 		fi
+# 		printf '%s\n' "$prepare_root_cache" | sed "s/^/$submenu_indentation/"
+# 	else
+# 		if [ -z "${prepare_boot_cache}" ]; then
+# 			prepare_boot_cache="$(prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" | grub_add_tab)"
+# 		fi
+# 		printf '%s\n' "$prepare_boot_cache" | sed "s/^/$submenu_indentation/"
+# 	fi
+# 	message="$(gettext_printf "Loading Linux %s ..." "$version")"
+# 	sed "s/^/$submenu_indentation/" <<EOF
+# 	echo	'$(echo "$message" | grub_quote)'
+# 	linux	${rel_dirname}/${basename} root=/dev/ram0 ${args} ROOT=${android_root_device_thisversion} SRC=${SRC} ANDROID_VER=${ANDROID_VER_MAJOR}
+# EOF
+# 	if test -n "${initrd}"; then
+# 		# TRANSLATORS: ramdisk isn't identifier. Should be translated.
+# 		message="$(gettext_printf "Loading initial ramdisk ...")"
+# 		initrd_path=
+# 		for i in ${initrd}; do
+# 			initrd_path="${initrd_path} ${rel_dirname}/${i}"
+# 		done
+# 		sed "s/^/$submenu_indentation/" <<EOF
+# 	echo	'$(echo "$message" | grub_quote)'
+# 	initrd	$initrd_path
+# EOF
+# 	fi
+# 	sed "s/^/$submenu_indentation/" <<EOF
+# }
+# EOF
+# }
 
 android_entry() {
-	local title="$1" \
-		src="$2" \
-		kernel="$3" \
-		initrd="$4" \
-		disk="$5" \
-		device_id="$6" \
-		type="$7"
+	local title="OS" \
+		kernel="$1" \
+		initrd="$2" \
+		type="$3" \
+		system=$4
+	# src="$2"
+	# disk="$5"
+	# device_id="$6"
 
-	[ "$type" != "default" ] &&
-		title="$title, with ${kernel##*/}, and ${initrd##*/}"
+	if [ "$type" != "default" ]; then
+		title="$title, with ${kernel##*/}"
+		case "$type" in
+		freshboot)
+			title="$title - Freshboot"
+			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID MODE=freshboot"
+			;;
+		recovery)
+			title="$title - Recovery"
+			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID MODE=recovery"
+			;;
+		esac
 
-	sub_indent "menuentry '$(echo "$title" | grub_quote)' ${CLASS} \$menuentry_id_option '$OS-${src##*/}-${kernel##*/}-${initrd##*/}-$type-$device_id' {"
+	fi
+
+	sub_indent "menuentry '$(echo "$title" | grub_quote)' ${CLASS} \$menuentry_id_option '${OS// /_}${SRC:+-${SRC##*/}}-$type-$device_id' {"
 
 	save_default_entry | grub_add_tab
 
@@ -101,224 +199,164 @@ android_entry() {
 	fi
 
 	sub_indent "	insmod gzio"
-	echo "$disk" | sed "s/^/$submenu_indentation	/gm"
-	sub_indent "	linux $kernel $GRUB_CMDLINE_ANDROID root=/dev/ram0 SRC=$src"
+	# echo "$disk" | sed "s/^/$submenu_indentation	/gm"
+	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
+		sed "s/^/$submenu_indentation/"
+
+	sub_indent "	linux $kernel $GRUB_CMDLINE_ANDROID_DEFAULT $GRUB_CMDLINE_ANDROID root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SRC=$system"} ${DATA:+"SRC=$DATA"}"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
 }
 
-_mount_fs() {
-	local disktmp
-	disktmp="$(mktemp)"
-	rm -f "$disktmp"
-	mkdir -p "$disktmp" || true
-	mount -o ro${2:+,$2} -t "${3:-auto}" "$1" "$disktmp" 2>/dev/null
-	echo "$disktmp"
-}
+list=
+add2list() { if grub_file_is_not_garbage "$1"; then list="$list $1"; fi; }
+machine=$(uname -m)
+case "$machine" in
+i?86 | x86_64) for i in /boot/vmlinuz-* /vmlinuz-* /boot/kernel-*; do
+	add2list "$i"
+done ;;
+*) for i in /boot/vmlinuz-* /boot/vmlinux-* /vmlinuz-* /vmlinux-* /boot/kernel-*; do
+	add2list "$i"
+done ;;
+esac
 
-find_buildprop() {
-	if [ -d "$1" ]; then
-		local buildprop_file=$1/system/build.prop
-		[ -f "$buildprop_file" ] || buildprop_file=$1/build.prop
-		[ -f "$buildprop_file" ] || return 1
-		cat "$buildprop_file"
-	elif [ -f "$1" ]; then
-		case "$1" in
-		*system.img)
-			imgdir="$(_mount_fs "$1" loop)" || return 1
-			find_buildprop "$imgdir"
-			umount -lf "$imgdir"
-			rm -rf "$imgdir"
-			;;
-		*system.?fs)
-			sfsdir="$(_mount_fs "$1" loop)" || return 1
-			find_buildprop "$sfsdir/system.img"
-			umount -lf "$sfsdir"
-			rm -rf "$sfsdir"
-			;;
-		esac
-	fi
-	return $?
-}
+case $machine in
+i?86) GENKERNEL_ARCH="x86" ;;
+mips | mips64) GENKERNEL_ARCH="mips" ;;
+mipsel | mips64el) GENKERNEL_ARCH="mipsel" ;;
+arm*) GENKERNEL_ARCH="arm" ;;
+*) GENKERNEL_ARCH="$machine" ;;
+esac
 
-parse_path() {
-	[ "${1}" ] || return 1
-	local path=$1 \
-		systempath=$1 \
-		disk=$2 \
-		boot_device_id=$3 \
-		buildprop \
-		abi \
-		buildver \
-		type \
-		os \
-		ver
+device_id=
+title_correction_code=
 
-	path=${path%/*}
+# Extra indentation to add to menu entries in a submenu. We're not in a submenu
+# yet, so it's empty. In a submenu it will be equal to '\t' (one tab).
+submenu_indentation=""
 
-	# Getting build.prop contents
-	buildprop="$(find_buildprop "$systempath")" || return 1
+# Perform a reverse version sort on the entire list.
+# Temporarily replace the '.old' suffix by ' 1' and append ' 2' for all
+# other files to order the '.old' files after their non-old counterpart
+# in reverse-sorted order.
 
-	# Get abi
-	abi=$(gprop "$buildprop" "product.cpu.abi")
-	case "$abi" in *64*) [ "$LM" ] || return 1 ;;
-	esac
-	case "$abi" in
-	x86*) : x86 ;;
-	arm*) : arm ;;
-	*) : ;;
-	esac
-	[ "$_" = "$GENKERNEL_ARCH" ] || return 1
+reverse_sorted_list=$(echo "$list" | tr ' ' '\n' | sed -e 's/\.old$/ 1/; / 1$/! s/$/ 2/' | version_sort -r | sed -e 's/ 1$/.old/; s/ 2$//')
 
-	# Parse version
-	buildver="$(grep -E "ro.([a-z]*).version" <<<"$(grep -v build <<<"${buildprop}")")"
-	for version in $buildver; do
-		case $version in
-		ro.bliss.version*)
-			os="Bliss OS"
-			ver="$(gver "$buildver" "bliss")"
-			break
-			;;
-		ro.phoenix.version*)
-			os="Phoenix OS"
-			ver="$(gver "$buildver" "phoenix" "code")"
-			break
-			;;
-		ro.primeos.version*)
-			os="Prime OS"
-			ver="$(gver "$buildver" "primeos" "name")"
-			break
-			;;
-		ro.lineage.version*)
-			os="Lineage OS"
-			ver="$(gver "$buildver" "lineage")"
-			;;
-		*)
-			os="AOSP"
-			ver="$(gver "$buildver" "build" "release") $(gprop "$buildprop" "build.flavor")"
-			;;
-		esac
-	done
+if [ "$GRUB_TOP_LEVEL" ]; then
+	reverse_sorted_list=$(grub_move_to_front "$GRUB_TOP_LEVEL" ${reverse_sorted_list})
+fi
 
-	echo "Found $os version $ver on $4" >&2
+gen_menuentry() {
+	is_top_level=true
+	for linux in ${reverse_sorted_list}; do
+		gettext_printf "Found linux image: %s\n" "$linux" >&2
+		basename=$(basename "$linux")
+		dirname=$(dirname "$linux")
+		rel_dirname=$(make_system_path_relative_to_its_root "$dirname")
+		version=${basename#*-}
+		alt_version=${version%".old"}
 
-	type=default
-	local src \
-		MAIN_ENTRY \
-		EXTENDED_ENTRIES \
-		vendor
-	src=$(echo "${path#"$mountpoint"}" | sed 's/ /\\ /g')
-
-	# Extra indentation to add to menu entries in a submenu. We're not in a submenu
-	# yet, so it's empty. In a submenu it will be equal to '\t' (one tab).
-	submenu_indentation=""
-
-	# Checking for cpu id/manufacturer and microcode file
-	case "$(grep vendor_id /proc/cpuinfo | head -1 | awk '{print $3}')" in
-	"GenuineIntel") : "intel" ;;
-	"AuthenticAMD") : "amd" ;;
-	esac
-	vendor=$_
-	microcode=$(find "$path" -maxdepth 1 -type f \( -iname "$vendor-ucode.img" -o -iname "$vendor-microcode.img" \) -print -quit 2>/dev/null)
-
-	for kernel in "$path"/vmlinu[xz]* "$path"/kernel*; do
-		[ -f "$kernel" ] || continue
-		for initrd in "$path"/initrd*.img "$path"/initramfs*.img; do
-			[ -f "$initrd" ] || continue
-
-			entry() {
-				android_entry \
-					"$os $ver" \
-					"$src" \
-					"${src}${kernel#"$path"}" \
-					"${microcode:+"${src}${microcode#"$path"} "}${src}${initrd#"$path"}" \
-					"$disk" \
-					"$boot_device_id" \
-					"$1"
-			}
-
-			if [ "$type" = "default" ]; then
-				MAIN_ENTRY="$(entry default)"
-				type=extended
-				submenu_indentation=$grub_tab
+		initrd_early=
+		for i in ${GRUB_EARLY_INITRD_LINUX_STOCK} ${GRUB_EARLY_INITRD_LINUX_CUSTOM}; do
+			if test -e "${dirname}/${i}"; then
+				initrd_early="${initrd_early} ${i}"
 			fi
-			EXTENDED_ENTRIES="$EXTENDED_ENTRIES\n$(entry extended)"
 		done
-	done
+		for i in /boot/*-uc.img /boot/*-ucode.img /boot/*-microcode.img /boot/microcode.cpio /boot/early_ucode.cpio; do
+			initrd_early="${initrd_early} ${i}"
+		done
 
-	echo -e "
+		initrd_real=
+		for i in "initrd.img" "initrd-${version}.img" "initramfs-${version}.img" "initrd-${alt_version}.img" "initramfs-${alt_version}.img"; do
+			if test -e "${dirname}/${i}"; then
+				initrd_real="${i}"
+				break
+			fi
+		done
 
-$MAIN_ENTRY
+		initrd=
+		if test -n "${initrd_early}" || test -n "${initrd_real}"; then
+			initrd="${initrd_early} ${initrd_real}"
 
-submenu '$(echo "Advanced options for $os $ver" | grub_quote)' \$menuentry_id_option '$OS-${src##*/}-$type-$boot_device_id' { 
-$EXTENDED_ENTRIES
-}
-
-"
-}
-
-find_os() {
-	local pre_mounted \
-		mountpoint \
-		foundpaths \
-		disk \
-		boot_device_id
-	pre_mounted="$(lsblk -pndo mountpoints "$1" | tail -1)"
-	if [ "$pre_mounted" ]; then
-		mountpoint="$pre_mounted"
-	else
-		fs=$2
-		[ "$2" = "ntfs" ] && fs=$NTFS
-		mountpoint="$(_mount_fs "$1" "" "$fs")"
-	fi
-
-	local EXCLUDE=
-	IFS=,
-	for dir in ${GRUB_ANDROID_EXCLUDE}; do
-		EXCLUDE="$EXCLUDE -not \( -path \"${mountpoint}${dir/ /\\ }/*\" -prune \)"
-	done
-	unset IFS
-
-	foundpaths="$(eval 'find "'"$mountpoint"'" -maxdepth '"$DEPTH"' \(' "$INCLUDE" '\)' "$EXCLUDE" 2>/dev/null)"
-
-	if [ ! "$foundpaths" ]; then
-		if [ ! "$pre_mounted" ]; then
-			umount -lf "$mountpoint"
-			rm -rf "$mountpoint"
+			initrd_display=
+			for i in ${initrd}; do
+				initrd_display="${initrd_display} ${dirname}/${i}"
+			done
+			gettext_printf "Found initrd image: %s\n" "$initrd_display" >&2
 		fi
-		return
-	fi
 
-	# get device info (in grub)
-	disk="$(prepare_grub_to_access_device "$1")"
-	boot_device_id="$(grub_get_device_id "$1")"
+		config=
+		for i in "${dirname}/config-${version}" "${dirname}/config-${alt_version}" "/etc/kernels/kernel-config-${version}"; do
+			if test -e "${i}"; then
+				config="${i}"
+				break
+			fi
+		done
 
-	while read -r path; do
-		parse_path "$path" "$disk" "$boot_device_id" "$1" || continue
-	done <<<"$foundpaths"
+		# initramfs=
+		# if test -n "${config}"; then
+		# 	initramfs=$(grep CONFIG_INITRAMFS_SOURCE= "${config}" | cut -f2 -d= | tr -d \")
+		# fi
 
-	if [ ! "$pre_mounted" ]; then
-		umount -lf "$mountpoint"
-		rm -rf "$mountpoint"
+		# if test -z "${initramfs}" && test -z "${initrd_real}"; then
+		# 	# "UUID=" and "ZFS=" magic is parsed by initrd or initramfs.  Since there's
+		# 	# no initrd or builtin initramfs, it can't work here.
+		# 	if [ -z "$GRUB_DEVICE_PARTUUID" ] || [ "$GRUB_DISABLE_LINUX_PARTUUID" = "true" ]; then
+		# 		android_root_device_thisversion=${ROOT}
+		# 	else
+		# 		android_root_device_thisversion=PARTUUID=${GRUB_DEVICE_PARTUUID}
+		# 	fi
+		# fi
+
+		# The GRUB_DISABLE_SUBMENU option used to be different than others since it was
+		# mentioned in the documentation that has to be set to 'y' instead of 'true' to
+		# enable it. This caused a lot of confusion to users that set the option to 'y',
+		# 'yes' or 'true'. This was fixed but all of these values must be supported now.
+		if [ "$GRUB_DISABLE_SUBMENU" = yes ] || [ "$GRUB_DISABLE_SUBMENU" = y ]; then
+			GRUB_DISABLE_SUBMENU="true"
+		fi
+
+		kpath=${rel_dirname}/${basename}
+		ipath=
+		for i in ${initrd}; do
+			ipath="${ipath} ${rel_dirname}/${i}"
+		done
+
+		if [ "$is_top_level" = "true" ] && [ "$GRUB_DISABLE_SUBMENU" != "true" ]; then
+			android_entry "$kpath" "$ipath" default $1
+
+			submenu_indentation="$grub_tab"
+
+			if [ -z "$device_id" ]; then
+				device_id="$(grub_get_device_id "$BOOT_DEVICE")"
+			fi
+			# TRANSLATORS: %s is replaced with an OS name
+			echo "submenu '$(gettext_printf "Advanced options for %s" "${OS}" | grub_quote)' \$menuentry_id_option '${OS// /_}${SRC:+-${SRC##*/}}-advanced-$device_id' {"
+			is_top_level=false
+		fi
+
+		android_entry "$kpath" "$ipath" advanced "$1"
+		android_entry "$kpath" "$ipath" freshboot "$1"
+		[ "$GRUB_DISABLE_RECOVERY" = "true" ] ||
+			android_entry "$kpath" "$ipath" recovery "$1"
+	done
+
+	# If at least one kernel was found, then we need to
+	# add a closing '}' for the submenu command.
+	if [ "$is_top_level" != "true" ]; then
+		echo '}'
 	fi
 }
 
-echo "Detecting android..." >&2
+case "$MODE" in
+ab)
+	gen_menuentry system_a
+	gen_menuentry system_b
+	;;
+*)
+	gen_menuentry ''
+	;;
+esac
 
-# Scan for Android partitions that contain both system(folder, .img, .sfs)
-# and data(folder, .img, .sfs)
-
-while read -r blk; do
-	blk_fs=$(lsblk -prndo fstype "$blk")
-	[ "$blk_fs" ] &&
-		gfind "$GRUB_ANDROID_SUPPORTED_FS" "$blk_fs" >/dev/null ||
-		continue
-	find_os "$blk" "$blk_fs"
-done <<<"$(
-	ls /sys/class/block/ |
-		grep ".*[0-9]$" |
-		grep -Ev "loop|ram|nbd|fd" |
-		sed "s|^|/dev/|g"
-)"
-#địt mẹ nigga
+echo "$title_correction_code"

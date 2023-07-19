@@ -1,7 +1,5 @@
 #!/bin/bash
 
-die() { echo "$*" && exit 1; }
-
 NEWIMG=$1
 
 COMP=dir
@@ -9,106 +7,105 @@ COMP=dir
 case "$NEWIMG" in *.?fs | .img) COMP="${NEWIMG##*.}" ;; esac
 
 if [ "$COMP" = "$SYSTEM_TYPE" ]; then
-  echo "$NEWIMG"
-  exit 0
+	echo "$NEWIMG"
+	exit 0
 fi
 
 fsize() { du -sk "$1" | awk '{print $1}'; }
 
 check_space() {
-  local mounted_dir
-  case "$SYSTEM_TYPE" in
-  dir | img) NEEDED_SPACE=$(fsize "$NEWIMG") ;;
-  ?fs)
-    mounted_dir=$(loop_mount "$NEWIMG")
-    NEEDED_SPACE=$(fsize "$mounted_dir/system.img")
-    umount "$mounted_dir"
-    ;;
-  esac
+	local mounted_dir
+	case "$SYSTEM_TYPE" in
+	dir | img) NEEDED_SPACE=$(fsize "$NEWIMG") ;;
+	?fs)
+		mounted_dir=$(loop_mount "$NEWIMG")
+		NEEDED_SPACE=$(fsize "$mounted_dir/system.img")
+		umount "$mounted_dir"
+		;;
+	esac
 
-  FREESPACE=$(/usr/lib/gearlock/checkfree)
+	FREESPACE=$(/usr/lib/gearlock/checkfree)
 
-  ((NEEDED_SPACE > FREESPACE)) &&
-    exit 1
+	((NEEDED_SPACE > FREESPACE)) &&
+		exit 1
 }
 
 check_space
 
 if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
-  TMPDIR=$SRCDIR/tmp
-  [ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
+	TMPDIR=$SRCDIR/tmp
+	[ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
 else
-  TMPDIR=/data/local/tmp
+	TMPDIR=/data/local/tmp
 fi
 
 loop_mount() {
-  local disktmp
-  disktmp="$(mktemp)"
-  rm -f "$disktmp"
-  mkdir -p "$disktmp" || true
-  mount -o ro${2:+,$2} -t "${3:-auto}" "$1" "$disktmp" 2>/dev/null
-  UNMOUNT_LIST="$disktmp $UNMOUNT_LIST"
-  echo "$disktmp"
+	local disktmp
+	disktmp="$(mktemp)"
+	rm -f "$disktmp"
+	mkdir -p "$disktmp" || true
+	mount -o ro${2:+,$2} -t "${3:-auto}" "$1" "$disktmp" 2>/dev/null
+	UNMOUNT_LIST="$disktmp $UNMOUNT_LIST"
+	echo "$disktmp"
 }
 
 unpack() {
-  local tmpdir
-  tmpdir=$(loop_mount "$NEWIMG")
-  NEWIMG=$tmpdir
+	local tmpdir
+	tmpdir=$(loop_mount "$NEWIMG")
+	NEWIMG=$tmpdir
 }
 
 dir_to_img() {
-  local target tmpdir
-  target=$TMPDIR/system.img
-  truncate -s "$((NEEDED_SPACE + 4096))K" "$target"
-  mkfs.ext4 "$target"
-  tmpdir=$(loop_mount "$target")
-  rsync -arKHEpAXogz --devices --specials --remove-source-files "$NEWIMG/" "$tmpdir/"
-  NEWIMG=$target
+	local target tmpdir
+	target=$TMPDIR/system.img
+	truncate -s "$((NEEDED_SPACE + 4096))K" "$target"
+	mkfs.ext4 "$target"
+	tmpdir=$(loop_mount "$target")
+	rsync -arKHEpAXogz --devices --specials --remove-source-files "$NEWIMG/" "$tmpdir/"
+	NEWIMG=$target
 }
 
 img_to_sfs() {
-  local target tmpdir
-  target=$TMPDIR/system.sfs
-  tmpdir=$TMPDIR/sfs
-  mkdir -p "$tmpdir"
-  mv "$NEWIMG" "$tmpdir/"
-  mksquashfs "$tmpdir/" "$target" ${SFS_COMPRESSION:+-comp SFS_COMPRESSION} $SFS_COMPRESSION_OPTS
-  rm -rf "$tmpdir"
-  NEWIMG=$target
+	local target tmpdir
+	target=$TMPDIR/system.sfs
+	tmpdir=$TMPDIR/sfs
+	mkdir -p "$tmpdir"
+	mv "$NEWIMG" "$tmpdir/"
+	mksquashfs "$tmpdir/" "$target" ${SFS_COMPRESSION:+-comp SFS_COMPRESSION} $SFS_COMPRESSION_OPTS
+	rm -rf "$tmpdir"
+	NEWIMG=$target
 }
 
 img_to_efs() {
-  local target tmpdir
-  target=$TMPDIR/system.efs
-  tmpdir=$TMPDIR/efs
-  mkdir -p "$tmpdir"
-  mv "$NEWIMG" "$tmpdir/"
-  # mksquashfs "$tmpdir" "$target" ${SFS_COMPRESSION:+-comp SFS_COMPRESSION} $SFS_COMPRESSION_OPTS
-  mkfs.erofs ${EFS_COMPRESSION:+-z$EFS_COMPRESSION} $EFS_COMPRESSION_OPTS "$target" "$tmpdir/"
-  rm -rf "$tmpdir"
-  NEWIMG=$target
+	local target tmpdir
+	target=$TMPDIR/system.efs
+	tmpdir=$TMPDIR/efs
+	mkdir -p "$tmpdir"
+	mv "$NEWIMG" "$tmpdir/"
+	mkfs.erofs ${EFS_COMPRESSION:+-z$EFS_COMPRESSION} $EFS_COMPRESSION_OPTS "$target" "$tmpdir/"
+	rm -rf "$tmpdir"
+	NEWIMG=$target
 }
 
 case "$SYSTEM_TYPE" in
 dir) case "$COMP" in
-  img) unpack ;;
-  ?fs) unpack && unpack ;;
-  esac ;;
+	img) unpack ;;
+	?fs) unpack && unpack ;;
+	esac ;;
 img) case "$COMP" in
-  dir) dir_to_img ;;
-  ?fs) unpack ;;
-  esac ;;
+	dir) dir_to_img ;;
+	?fs) unpack ;;
+	esac ;;
 sfs) case "$COMP" in
-  dir) dir_to_img && img_to_sfs ;;
-  img) img_to_sfs ;;
-  efs) unpack && img_to_sfs ;;
-  esac ;;
+	dir) dir_to_img && img_to_sfs ;;
+	img) img_to_sfs ;;
+	efs) unpack && img_to_sfs ;;
+	esac ;;
 efs) case "$COMP" in
-  dir) dir_to_img && img_to_efs ;;
-  img) img_to_efs ;;
-  sfs) unpack && img_to_efs ;;
-  esac ;;
+	dir) dir_to_img && img_to_efs ;;
+	img) img_to_efs ;;
+	sfs) unpack && img_to_efs ;;
+	esac ;;
 esac
 
 export UNMOUNT_LIST

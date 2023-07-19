@@ -10,32 +10,35 @@ die() { echo "==> ERROR: $*" && exit 1; }
 [ "$4" ] && die "Invalid arguments '$*'"
 
 while [ "$1" ]; do
-  case "$1" in
-  -s | --sig)
-    [ "$2" ] || die "Signature not given"
-    SIG=$2
-    shift
-    ;;
-  -s=* | --sig=*) SIG=${1#*=} ;;
-  *) SYSIMAGE=$1 ;;
-  esac
-  shift
+	case "$1" in
+	-s | --sig)
+		[ "$2" ] || die "Signature not given"
+		SIG=$2
+		shift
+		;;
+	-s=* | --sig=*)
+		SIG=${1#*=}
+		[ "$SIG" ] || die "Signature not given"
+		;;
+	*) SYSIMAGE=$1 ;;
+	esac
+	shift
 done
 
 [ "$SYSIMAGE" ] || die "No system image given"
 
 if [ "$SIG" ]; then
-  /usr/lib/gearlock/checksum "$SIG" || die "Invalid Signature '$SIG'"
+	/usr/lib/gearlock/checksum "$SIG" || die "Invalid Signature '$SIG'"
 else
-  read -rn 1 -p "No Signature given. Continue? [y/n]: " confirm
-  [ "$confirm" = y ] || exit
+	read -rn 1 -p "No Signature given. Continue? [y/n]: " confirm
+	[ "$confirm" = y ] || exit
 fi
 
 SYSIMAGE=$(/usr/lib/gearlock/sysup/convert "$SYSIMAGE") ||
-  die "Not enough space to extract/compress '$SYSIMAGE'"
+	die "Not enough space to extract/compress '$SYSIMAGE'"
 
 /usr/lib/gearlock/sysup/reinstall_patch "$SYSIMAGE" ||
-  die "Failed to patch '$SYSIMAGE'"
+	die "Failed to patch '$SYSIMAGE'"
 
 SYSUP_STATUS=$(/usr/lib/gearlock/sysup/"sysup_$MODE" "$SYSIMAGE")
 [ $? = 0 ] || die "$SYSUP_STATUS"

@@ -937,7 +937,7 @@ kerneldir="${basedir}lib/modules/$kver"
 # fi
 
 # if [ -z "$outfile" ]; then
-outfile=${outfile:-"${basedir}boot/initramfs-${kver}.img"}
+outfile=${outfile:-"${basedir}boot/initrd-${kver}.img"}
 # fi
 
 if [ ! -d "$kerneldir" ]; then
