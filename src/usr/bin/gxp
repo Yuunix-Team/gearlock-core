@@ -7,18 +7,14 @@ usage() {
 usage: ${0##*/} [options]
 options:
 	-c <config>   use config file
-	-S [options] [package(s)]   install/update package(s)
 	-Q [options] [package(s)]   query package(s)
 	-R [options] <package(s)>   remove packge(s)
+	-S [options] [package(s)]   install/update package(s)
+	-U [options] <file(s)>   		install file(s)
 	-h  print this help
 	-j  always yes
 	-k  always no
 	-q  quiet mode
-
-install/update options:
-	-u  upgrade
-	-w  download only
-	-y  sync repositories
 
 query options:
 	-i  show package info
@@ -29,15 +25,54 @@ query options:
 remove options:
 	-d  skip dependency check
 	-s  remove packages and all depend on them, and/or unnecessary packages
+
+install/update options:
+	-d 	skip dependency check
+	-u  upgrade
+	-w  download only
+	-y  sync repositories
+
+install file options:
+	-d 	skip dependency check
+
 EOF
 }
 
 pkg_version() {
-	echo
+	local pkg max path
+
+	while read -r pkg; do
+		. "$pkg"
+		if [ "$max" ] || [ "$(versionCompare "$max" "$VERSION")" = "<" ]; then
+			max=$VERSION
+			path=$pkg
+		fi
+		unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+	done <<<"$(find "$GXP_CACHE/repo/" -type "f" -maxdepth "2" -iname "$1")"
+	echo "$path $max"
 }
 
 pkg_deplist() {
-	echo
+	[ "$nodepcheck" = true ] && return
+
+	local deps pkg oldver subdeps
+
+	. "$(pkg_version "$1" | awk '{print $1}')"
+
+	for pkg in $DEPENDS; do
+		oldver=$(sed -n "s/VERSION=//p" "$GXP_DB/$NAME/info")
+		case "$(versionCompare "$oldver" "$VERSION")" in
+		"<") deps="$deps $NAME" ;;
+		esac
+	done
+
+	unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+
+	for pkg in $deps; do
+		subdeps="$subdeps $(pkg_deplist "$pkg")"
+	done
+
+	echo "$subdeps $deps"
 }
 
 versionCompare() {
@@ -70,23 +105,27 @@ versionCompare() {
 }
 
 sync() {
-	local dl_pkgs dl_files pkg
+	local dl_pkgs dl_files pkg pkgname newver
 
 	[ "$refresh" = true ] && "$GEARLIB"/gxp/refresh
 
 	while [ "$1" ]; do
-		dl_pkgs="$dl_pkgs $(deplist "$1") $1"
+		dl_pkgs="$dl_pkgs $(pkg_deplist "$1") $1"
 		shift
 	done
 
 	if [ "$upgrade" = true ]; then
 		for pkg in "$GXP_DB"/*/; do
-			echo "$dl_pkgs" | grep "${pkg##*/}" &&
+			pkgname=${pkg##*/}
+			newver=
+
+			echo "$dl_pkgs" | grep "$pkgname" &&
 				continue
 
 			. "$pkg"/info
-			[ "$(versionCompare "$VERSION" "$(pkg_version "${pkg##*/}")")" = "<" ] &&
-				dl_pkgs="$dl_pkgs ${pkg##*/}"
+			newver=$(pkg_version "$pkgname" | awk '{print $2}')
+			[ "$(versionCompare "$VERSION" "$newver")" = "<" ] &&
+				dl_pkgs="$dl_pkgs $pkgname"
 
 			unset VERSION
 		done
@@ -120,9 +159,8 @@ sync() {
 }
 
 query() {
-
 	print_pkginfo() {
-		local importfile searchdir searchtype depth type=$1 key=$2 pkg
+		local importfile searchdir searchtype depth type=$1 key=$2 pkg oldver
 		case "$type" in
 		online)
 			importfile=
@@ -144,8 +182,10 @@ query() {
 			. "$pkg$importfile"
 
 			if [ "$type" = online ] && [ -d "$GXP_DB/$NAME" ]; then
-				[ "$(sed -n "s/VERSION=//p" "$GXP_DB/$NAME/info")" = "$VERSION" ] &&
-					continue
+				oldver=$(sed -n "s/VERSION=//p" "$GXP_DB/$NAME/info")
+				case "$(versionCompare "$oldver" "$VERSION")" in
+				">" | "=") continue ;;
+				esac
 			fi
 
 			if [ "$info" ]; then
@@ -219,6 +259,10 @@ EOF
 	done
 }
 
+remove() {
+	echo
+}
+
 while getopts "c:hjkqSQR" opt; do
 	case "$opt" in
 	c) config=$OPTARG ;;
@@ -226,19 +270,6 @@ while getopts "c:hjkqSQR" opt; do
 	j) always=yes ;;
 	k) always=no ;;
 	q) quiet=true ;;
-	S)
-		mode=sync
-		while getopts "uwy" subopt; do
-			case "$subopt" in
-			u) upgrade=true ;;
-			w) mode=download ;;
-			y) refresh=true ;;
-			*) usage && exit 1 ;;
-			esac
-		done
-		shift $((OPTIND - 1))
-		sync $@
-		;;
 	Q)
 		mode=index
 		while getopts "ils:" subopt; do
@@ -251,6 +282,7 @@ while getopts "c:hjkqSQR" opt; do
 			esac
 		done
 		shift $((OPTIND - 1))
+		. "$(readlink -f "$config")"
 		query $@
 		;;
 	R)
@@ -262,9 +294,24 @@ while getopts "c:hjkqSQR" opt; do
 			esac
 		done
 		shift $((OPTIND - 1))
+		. "$(readlink -f "$config")"
+		remove $@
+		;;
+	S)
+		mode=sync
+		while getopts "uwy" subopt; do
+			case "$subopt" in
+			d) nodepcheck=true ;;
+			u) upgrade=true ;;
+			w) mode=download ;;
+			y) refresh=true ;;
+			*) usage && exit 1 ;;
+			esac
+		done
+		shift $((OPTIND - 1))
+		. "$(readlink -f "$config")"
+		sync $@
 		;;
 	*) usage && exit 1 ;;
 	esac
 done
-
-. "$(readlink -f "$config")"
