@@ -24,7 +24,7 @@ query options:
 	-i  show package info
 	-l  list installed package files
 	-r  list installed repos
-	-S  search package
+	-s <keyword> 	search package with one keyword
 
 remove options:
 	-d  skip dependency check
@@ -97,12 +97,12 @@ sync() {
 
 	case "$always" in
 	yes) ;;
-	no) return 0 ;;
+	no) return ;;
 	*)
 		read -rn 1 -p "Confirm? [Y/n]" confirm
 		case "$confirm" in
 		[Yy]) ;;
-		*) return 0 ;;
+		*) return ;;
 		esac
 		;;
 	esac
@@ -115,12 +115,108 @@ sync() {
 	sync) for pkg in $dl_files; do
 		"$GEARLIB"/gxp/install "$pkg"
 	done ;;
-	download) return 0 ;;
+	download) return ;;
 	esac
 }
 
 query() {
-	echo
+
+	print_pkginfo() {
+		local importfile searchdir searchtype depth type=$1 key=$2 pkg
+		case "$type" in
+		online)
+			importfile=
+			searchdir=$GXP_CACHE/repo/
+			searchtype=f
+			depth=2
+			STATUS="Not installed"
+			;;
+		*)
+			importfile=/info
+			searchdir=$GXP_DB
+			searchtype=d
+			depth=1
+			STATUS="Installed"
+			;;
+		esac
+
+		while read -r pkg; do
+			. "$pkg$importfile"
+
+			if [ "$type" = online ] && [ -d "$GXP_DB/$NAME" ]; then
+				[ "$(sed -n "s/VERSION=//p" "$GXP_DB/$NAME/info")" = "$VERSION" ] &&
+					continue
+			fi
+
+			if [ "$info" ]; then
+				if [ "$type" = online ]; then
+					echo "$NAME $VERSION"
+				else
+					echo "$NAME $VERSION [Installed]"
+				fi
+			else
+				cat <<EOF
+Package: $NAME
+Version: $VERSION
+Status: $STATUS
+Desctiption: $DESC
+Architecture: $ARCH
+License: $LICENSE
+Packager: $AUTHOR
+URL: $URL
+Provides: $PROVIDES
+Depends on: $DEPENDS
+EOF
+			fi
+
+			if [ "$mode" != search ] && [ "$type" != online ] && [ "$filelist" ]; then
+				echo "Installed files:"
+				cat "$GXP_DB/$NAME/files"
+				echo
+			fi
+
+			unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+		done <<<"$(find "$searchdir" -type "$searchtype" -maxdepth "$depth" -iname "$2")"
+	}
+
+	case "$mode" in
+	repo)
+		local repo
+		for repo in /etc/gxp.d/*; do
+			. "$repo"
+			echo
+			echo "Repo description: $DESC"
+			echo "Repo mirror list: $SERVERS"
+			echo
+			unset DESC SERVERS
+		done
+		return
+		;;
+	search)
+		local pkg STATUS
+
+		print_pkginfo "online" "*${keyword}*"
+		print_pkginfo "not" "*${keyword}*"
+
+		return
+		;;
+	esac
+
+	local valid_pkgs
+
+	while [ "$1" ]; do
+		if ! find "$GXP_CACHE/repo/" -type f -name "$1" && [ ! -d "$GXP_DB/$1" ]; then
+			echo "Invalid package: '$1'"
+		else
+			valid_pkgs="$valid_pkgs $1"
+		fi
+		shift
+	done
+
+	for pkg in $valid_pkgs; do
+		print_pkginfo "online" "$pkg"
+		print_pkginfo "not" "$pkg"
+	done
 }
 
 while getopts "c:hjkqSQR" opt; do
@@ -145,12 +241,12 @@ while getopts "c:hjkqSQR" opt; do
 		;;
 	Q)
 		mode=index
-		while getopts "ils" subopt; do
+		while getopts "ils:" subopt; do
 			case "$subopt" in
 			i) info=true ;;
 			l) filelist=true ;;
 			r) mode=repo ;;
-			s) mode=search ;;
+			s) mode=search && keyword=$OPTARG ;;
 			*) usage && exit 1 ;;
 			esac
 		done
