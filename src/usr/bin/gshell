@@ -1,7 +1,5 @@
 #!/bin/sh
 
-. "${CONFIG:="/etc/gearlock.conf"}"
-
 export PATH="/bin/:/system/bin:/system/xbin"
 
 SYSTEM=system.img
@@ -18,25 +16,20 @@ for arg in "$@"; do
   esac
 done
 
-case "$ROOT" in
-LABEL=* | UUID=*) ROOT=$(resolve_device "$ROOT") ;;
-esac
+uuidlabel() {
+  case "$1" in
+  LABEL=* | UUID=*) resolve_device "$1" ;;
+  *) echo "$1" ;;
+  esac
+}
 
-case "$SYSTEM" in
-LABEL=* | UUID=*) SYSTEM=$(resolve_device "$SYSTEM") ;;
-esac
+ROOT=$(uuidlabel "$ROOT")
+BOOT_PART=$(uuidlabel "$BOOT_PART")
+SYSTEM=$(uuidlabel "$SYSTEM")
+DATA=$(uuidlabel "$DATA")
+GEARLOCK=$(uuidlabel "$GEARLOCK")
 
-case "$DATA" in
-LABEL=* | UUID=*) DATA=$(resolve_device "$DATA") ;;
-esac
-
-case "$GEARLOCK" in
-LABEL=* | UUID=*) GEARLOCK=$(resolve_device "$GEARLOCK") ;;
-esac
-
-case "$BOOT_PART" in
-LABEL=* | UUID=*) BOOT_PART=$(resolve_device "$BOOT_PART") ;;
-esac
+. "${CONFIG:="/etc/gearlock.conf"}"
 
 export ROOT \
   BOOT_PART \

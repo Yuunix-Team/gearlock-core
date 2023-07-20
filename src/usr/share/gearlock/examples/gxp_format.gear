@@ -25,3 +25,6 @@ PROVIDES="libyourexample libyourexample2"
 
 # dependencies
 DEPENDS="libmyexample libmyexample-legacy"
+
+# in repo, an extra variable for file url is invoked
+FILEONHOST="yourpackage.gxp.tar.zst"

@@ -1,1 +1,34 @@
 #!/bin/bash
+
+while getopts "s" opt; do
+  case "$opt" in
+  s) getsig=true ;;
+  *) echo "Invalid argument" && exit 1 ;;
+  esac
+done
+
+shift $((OPTIND - 1))
+
+REPO=$1
+FILE=$2
+
+filefetch() {
+  curl -LO "$1" ||
+    wget "$1" ||
+    echo "Failed to fetch '$1'" && return 1
+  return 0
+}
+
+. "/etc/gxp.d/$REPO"
+
+oldpwd=$(pwd)
+cd "$GXP_CACHE/pkg"
+
+IPS="
+"
+for server in $SERVERS;do
+  filefetch "$server/$FILE" && break
+done
+unset IPS
+
+cd "$oldpwd"

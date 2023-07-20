@@ -47,7 +47,7 @@ pkg_version() {
 			max=$VERSION
 			path=$pkg
 		fi
-		unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+		unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
 	done <<<"$(find "$GXP_CACHE/repo/" -type "f" -maxdepth "2" -iname "$1")"
 	echo "$path $max"
 }
@@ -66,7 +66,7 @@ pkg_deplist() {
 		esac
 	done
 
-	unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+	unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
 
 	for pkg in $deps; do
 		subdeps="$subdeps $(pkg_deplist "$pkg")"
@@ -105,12 +105,18 @@ versionCompare() {
 }
 
 sync() {
-	local dl_pkgs dl_files pkg pkgname newver
+	local dl_pkgs pkg pkgname newver
 
 	[ "$refresh" = true ] && "$GEARLIB"/gxp/refresh
 
 	while [ "$1" ]; do
-		dl_pkgs="$dl_pkgs $(pkg_deplist "$1") $1"
+		case "$1" in
+		*/*)
+			echo "Invalid package '$1'"
+			continue
+			;;
+		esac
+		dl_pkgs="$dl_pkgs $(pkg_deplist "${1,,}") ${1,,}"
 		shift
 	done
 
@@ -129,7 +135,7 @@ sync() {
 
 			unset VERSION
 		done
-		unset NAME DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+		unset NAME DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
 	fi
 
 	echo "Total packages to download: $dl_pkgs"
@@ -146,15 +152,11 @@ sync() {
 		;;
 	esac
 
-	for pkg in $dl_pkgs; do
-		dl_files="$dl_files $("$GEARLIB"/gxp/fetch "$pkg")"
-	done
-
 	case "$mode" in
-	sync) for pkg in $dl_files; do
-		"$GEARLIB"/gxp/install "$pkg"
+	sync) "$GEARLIB"/gxp/install "$dl_pkgs" ;;
+	download) for pkg in $dl_pkgs; do
+		"$GEARLIB"/gxp/fetch "$pkg"
 	done ;;
-	download) return ;;
 	esac
 }
 
@@ -215,7 +217,7 @@ EOF
 				echo
 			fi
 
-			unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+			unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
 		done <<<"$(find "$searchdir" -type "$searchtype" -maxdepth "$depth" -iname "$2")"
 	}
 
@@ -235,8 +237,8 @@ EOF
 	search)
 		local pkg STATUS
 
-		print_pkginfo "online" "*${keyword}*"
-		print_pkginfo "not" "*${keyword}*"
+		print_pkginfo "online" "*${keyword,,}*"
+		print_pkginfo "not" "*${keyword,,}*"
 
 		return
 		;;
@@ -245,10 +247,10 @@ EOF
 	local valid_pkgs
 
 	while [ "$1" ]; do
-		if ! find "$GXP_CACHE/repo/" -type f -name "$1" && [ ! -d "$GXP_DB/$1" ]; then
-			echo "Invalid package: '$1'"
+		if [ -d "$GXP_DB/${1,,}" ] || find "$GXP_CACHE/repo/" -type f -name "${1,,}"; then
+			valid_pkgs="$valid_pkgs ${1,,}"
 		else
-			valid_pkgs="$valid_pkgs $1"
+			echo "Invalid package: '$1'"
 		fi
 		shift
 	done
@@ -263,7 +265,7 @@ remove() {
 	echo
 }
 
-while getopts "c:hjkqSQR" opt; do
+while getopts "c:hjkqQRSU" opt; do
 	case "$opt" in
 	c) config=$OPTARG ;;
 	h) usage && exit ;;
@@ -272,7 +274,7 @@ while getopts "c:hjkqSQR" opt; do
 	q) quiet=true ;;
 	Q)
 		mode=index
-		while getopts "ils:" subopt; do
+		while getopts "ilrs:" subopt; do
 			case "$subopt" in
 			i) info=true ;;
 			l) filelist=true ;;
@@ -299,7 +301,7 @@ while getopts "c:hjkqSQR" opt; do
 		;;
 	S)
 		mode=sync
-		while getopts "uwy" subopt; do
+		while getopts "duwy" subopt; do
 			case "$subopt" in
 			d) nodepcheck=true ;;
 			u) upgrade=true ;;
@@ -312,6 +314,7 @@ while getopts "c:hjkqSQR" opt; do
 		. "$(readlink -f "$config")"
 		sync $@
 		;;
+	U) ;;
 	*) usage && exit 1 ;;
 	esac
 done

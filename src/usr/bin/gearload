@@ -12,6 +12,10 @@ if [ -f "$NEWSYSIMG" ]; then
 fi
 
 # then load all gxp packages in /gearload
+for pkg in /gearload/*.gxp /gearload/*.gxp.*; do
+  gxp -U "$pkg"
+done
 
+# finally, do injection (if needed)
 
 
