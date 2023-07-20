@@ -104,10 +104,24 @@ versionCompare() {
 	fi
 }
 
+refreshdb() {
+	local repo reponame fetched_repo
+	for repo in /etc/gxp.d/*; do
+		reponame=${repo##*/}
+		fetched_repo=$("$GEARLIB"/gxp/fetch "$reponame" repo.db) ||
+			echo "Failed to update repo '$reponame'" && continue
+		tar -xaf "$fetched_repo" -C "$GXP_CACHE/repo/$reponame/"
+		rm -f "$fetched_repo"
+	done
+}
+
 sync() {
 	local dl_pkgs pkg pkgname newver
 
-	[ "$refresh" = true ] && "$GEARLIB"/gxp/refresh
+	if [ "$refresh" = true ]; then
+		refreshdb
+		[ "$1" ] || return
+	fi
 
 	while [ "$1" ]; do
 		case "$1" in

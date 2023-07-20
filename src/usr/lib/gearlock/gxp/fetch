@@ -27,7 +27,7 @@ cd "$GXP_CACHE/pkg"
 IPS="
 "
 for server in $SERVERS;do
-  filefetch "$server/$FILE" && break
+  filefetch "$server/$FILE" && echo "$(pwd)/$FILE" && break
 done
 unset IPS
 
