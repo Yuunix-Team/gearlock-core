@@ -79,7 +79,6 @@ add_all_modules() {
 	return $((!${#mods[*]}))
 }
 
-
 add_checked_modules() {
 	# Add modules to the initcpio, filtered by the list of autodetected
 	# modules.
@@ -885,17 +884,16 @@ options:
 	-z  initramfs compression (gzip|xz|zstd|lz4|cat defaults to $COMPRESSION)
 
 EOF
-	exit 1
 }
 
 # main
-features_dirs=${features_dir:-"${basedir%/:-}/${SYSCONFDIR#/}/features.d"}
+# features_dirs=${features_dir:-"${basedir%/:-}/${SYSCONFDIR#/}/features.d"}
 
 while getopts "A:c:hK:kLm:no:qr:S:t:z:" opt; do
 	case "$opt" in
 	A) HOOKS="$HOOKS ${OPTARG//,/ }" ;;
 	c) config=$OPTARG ;;
-	h) usage ;;
+	h) usage && exit ;;
 	k) keeptmp=1 ;;
 	K) kver=$OPTARG ;;
 	L) list_hooks ;;
@@ -906,7 +904,7 @@ while getopts "A:c:hK:kLm:no:qr:S:t:z:" opt; do
 	S) HOOKS="${HOOKS//$OPTARG/}" ;;
 	t) tmpdir="$OPTARG" ;;
 	z) COMPRESSION="$OPTARG" ;;
-	*) usage ;;
+	*) usage && exit 1 ;;
 	esac
 done
 shift $((OPTIND - 1))

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-gpg --verify "$1"
+gpg --verify "$1" "$2"
 exit $?

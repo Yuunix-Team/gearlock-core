@@ -1,7 +1,17 @@
 #!/bin/bash
 
-# This script loads all files in /gearload folder
+# execute /queue.glist first, if exists
 
-for file in /gearload/*; do
-  echo $file is being loaded
-done
+
+# then load new system image in /gearload, if exists
+# must come with signature
+# only one is allowed, ortherwise it'll skip
+NEWSYSIMG=/gearload/system*
+if [ -f "$NEWSYSIMG" ]; then
+  system-update "$NEWSYSIMG" --sig="${NEWSYSIMG}.sig"
+fi
+
+# then load all gxp packages in /gearload
+
+
+

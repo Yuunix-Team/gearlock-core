@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# recovery task queueing
+# syntax: gqueue <task> <task arguments/options>
+# tasks: fsresize (not-btrfs/exfat only)
+
+# fsresize arguments: <device/image> <size>
+# recommend doing this in recovery instead
+
+# supported fs type list:
+# extfs: resize2fs
+# xfs: xfs_growfs
+# fat: fatresize
+# f2fs: resize.f2fs
+
+# size: can be in K,M,G,...
+# (as long as not greater than max (fill available space) or smaller than min)
+# or min/max
+
+
+
+# rearange and pipe to /queue.glist

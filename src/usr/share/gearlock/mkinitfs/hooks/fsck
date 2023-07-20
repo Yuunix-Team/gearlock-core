@@ -1,23 +1,32 @@
 #!/bin/sh
 
 run_hook() {
-  [ "$ROOT" ] && fsck "$(find_mnt "$ROOT")"
-  case "$SYSTEM" in
+	fsck_part() { "fsck.$(fs_type "$1")" -f "$1"; }
+
+	[ "$ROOT" ] && fsck_part "$(find_mnt "$ROOT")"
+
+	case "$BOOT_PART" in
+	/dev/* | UUID=* | LABEL=*) fsck_part "$(find_mnt "$BOOT_PART")" ;;
+	esac
+
+	case "$SYSTEM" in
 	/dev/* | UUID=* | LABEL=*)
 		SYSTEM=$(find_mnt "$SYSTEM")
-		SYSTEMFS=$(fs_type "$SYSTEM")
-		case "$SYSTEMFS" in
-		squashfs | erofs) ;;
-		*) "fsck.$SYSTEMFS" "$SYSTEM" ;;
+		case "$(fs_type "$SYSTEM")" in
+		squashfs) ;;
+		*) fsck_part "$SYSTEM" ;;
 		esac
 		;;
+	*.img | *.efs) fsck_part "$SYSTEM" ;;
 	esac
 
 	case "$DATA" in
-	/dev/* | UUID=* | LABEL=*)
-		DATA=$(find_mnt "$DATA")
-		DATAFS=$(fs_type "$DATA")
-		"fsck.$DATAFS" "$DATA"
-		;;
+	/dev/* | UUID=* | LABEL=*) fsck_part "$(find_mnt "$DATA")" ;;
+	*.img) fsck_part "$DATA" ;;
+	esac
+
+	case "$GEARLOCK" in
+	/dev/* | UUID=* | LABEL=*) fsck_part "$(find_mnt "$GEARLOCK")" ;;
+	*.img) fsck_part "$GEARLOCK" ;;
 	esac
 }

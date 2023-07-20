@@ -24,7 +24,7 @@ check_space() {
 		;;
 	esac
 
-	FREESPACE=$(/usr/lib/gearlock/checkfree)
+	FREESPACE=$("$GEARLIB"/checkfree)
 
 	((NEEDED_SPACE > FREESPACE)) &&
 		exit 1

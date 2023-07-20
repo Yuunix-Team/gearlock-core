@@ -15,14 +15,14 @@ prop() { echo -n "${1#*=}"; }
 fprop() { grep -E "ro.$1" $BUILDPROP; }
 bprop() { prop "$(fprop "build.$1=")"; }
 
-CLASS="--class android --class os"
+# CLASS=""
 BUILDPROP=/system/build.prop
 buildver=$(fprop "([a-z]*).version" | grep -v build)
 # ANDROID_VER=$(prop "$(grep "ro.build.version.release=" "$BUILDPROP")")
 # ANDROID_VER_MAJOR=${ANDROID_VER%%.*}
 # SRC=${SRC:-"$(sed -e 's/^.*SRC=//' -e 's/ .*$//' /proc/cmdline)"}
 
-MODE=$(/usr/lib/gearlock/sysup/checkab)
+MODE=$("$GEARLIB"/sysup/checkab)
 
 IFS="
 "
@@ -164,8 +164,15 @@ android_entry() {
 	# disk="$5"
 	# device_id="$6"
 
+	case "$MODE" in
+	ab) case "$system" in
+		system_a*) title="$title - System A" ;;
+		system_b*) title="$title - System B" ;;
+		esac ;;
+	esac
+
 	if [ "$type" != "default" ]; then
-		title="$title, with ${kernel##*/}"
+		title="$title, with ${kernel##*-}"
 		case "$type" in
 		freshboot)
 			title="$title - Freshboot"
@@ -176,10 +183,9 @@ android_entry() {
 			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID MODE=recovery"
 			;;
 		esac
-
 	fi
 
-	sub_indent "menuentry '$(echo "$title" | grub_quote)' ${CLASS} \$menuentry_id_option '${OS// /_}${SRC:+-${SRC##*/}}-$type-$device_id' {"
+	sub_indent "menuentry '$(echo "$title" | grub_quote)' --class android --class os \$menuentry_id_option '${OS// /_}${SRC:+-${SRC##*/}}-$type-$device_id' {"
 
 	save_default_entry | grub_add_tab
 
@@ -229,11 +235,6 @@ arm*) GENKERNEL_ARCH="arm" ;;
 esac
 
 device_id=
-title_correction_code=
-
-# Extra indentation to add to menu entries in a submenu. We're not in a submenu
-# yet, so it's empty. In a submenu it will be equal to '\t' (one tab).
-submenu_indentation=""
 
 # Perform a reverse version sort on the entire list.
 # Temporarily replace the '.old' suffix by ' 1' and append ' 2' for all
@@ -247,6 +248,11 @@ if [ "$GRUB_TOP_LEVEL" ]; then
 fi
 
 gen_menuentry() {
+	title_correction_code=
+
+	# Extra indentation to add to menu entries in a submenu. We're not in a submenu
+	# yet, so it's empty. In a submenu it will be equal to '\t' (one tab).
+	submenu_indentation=""
 	is_top_level=true
 	for linux in ${reverse_sorted_list}; do
 		gettext_printf "Found linux image: %s\n" "$linux" >&2
@@ -350,8 +356,11 @@ gen_menuentry() {
 }
 
 case "$MODE" in
-ab) for i in a b; do gen_menuentry "system_$i${SYSTEM_TYPE:+".$SYSTEM_TYPE"}"; done ;;
-*) gen_menuentry '' ;;
+ab)
+	[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
+	for i in a b; do gen_menuentry "system_$i${COMP}"; done
+	;;
+*) gen_menuentry "$SYSTEM" ;;
 esac
 
 echo "$title_correction_code"

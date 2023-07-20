@@ -1,0 +1,27 @@
+# package name (id)
+# each packages contain unique id
+NAME=example-package
+
+# package version
+VERSION=0.0.1-rev1
+
+# package description
+DESC="This is just supposed to be a test package"
+
+# package architecture (for compatibility)
+ARCH=x86_64
+
+# package licenses
+LICENSE="MIT GPL2 BSD"
+
+# packager/author (name <email>)
+AUTHOR="YourName <yourmail@example.com>"
+
+# package source/homepage
+URL="https://github.com/yourname/yourrepo"
+
+# provides (if none, default to NAME)
+PROVIDES="libyourexample libyourexample2"
+
+# dependencies
+DEPENDS="libmyexample libmyexample-legacy"

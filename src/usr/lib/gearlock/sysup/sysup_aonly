@@ -24,12 +24,10 @@ case "$SYSTEM" in
   fi
   ;;
 *)
-  case "$SYSTEM_TYPE" in
-  ?fs | img) COMP=".$SYSTEM_TYPE" ;;
-  esac
+  [ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
   SYSTEM=$SRCDIR/system$COMP
-  FREESPACE=$(/usr/lib/gearlock/checkfree)
+  FREESPACE=$("$GEARLIB"/checkfree)
   checkspace
 
   if [ "$BOOTED" ]; then

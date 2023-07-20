@@ -1,2 +1,174 @@
 #!/bin/bash
 
+config=/etc/gxp.conf
+
+usage() {
+	cat <<EOF
+usage: ${0##*/} [options]
+options:
+	-c <config>   use config file
+	-S [options] [package(s)]   install/update package(s)
+	-Q [options] [package(s)]   query package(s)
+	-R [options] <package(s)>   remove packge(s)
+	-h  print this help
+	-j  always yes
+	-k  always no
+	-q  quiet mode
+
+install/update options:
+	-u  upgrade
+	-w  download only
+	-y  sync repositories
+
+query options:
+	-i  show package info
+	-l  list installed package files
+	-r  list installed repos
+	-S  search package
+
+remove options:
+	-d  skip dependency check
+	-s  remove packages and all depend on them, and/or unnecessary packages
+EOF
+}
+
+pkg_version() {
+	echo
+}
+
+pkg_deplist() {
+	echo
+}
+
+versionCompare() {
+	subVersion() {
+		echo -e "${1%%"."*}"
+	}
+	cutDot() {
+		local offset=${#1}
+		local length=${#2}
+		echo -e "${2:((++offset)):length}"
+	}
+	if [ -z "${1}" ] || [ -z "${2}" ]; then
+		echo "=" && exit 0
+	fi
+	local v1
+	v1=$(echo -e "${1}" | tr -d '[:space:]')
+	local v2
+	v2=$(echo -e "${2}" | tr -d '[:space:]')
+	local v1Sub
+	v1Sub=$(subVersion "$v1")
+	local v2Sub
+	v2Sub=$(subVersion "$v2")
+	if ((v1Sub > v2Sub)); then
+		echo ">"
+	elif ((v1Sub < v2Sub)); then
+		echo "<"
+	else
+		versionCompare "$(cutDot "$v1Sub" "$v1")" "$(cutDot "$v2Sub" "$v2")"
+	fi
+}
+
+sync() {
+	local dl_pkgs dl_files pkg
+
+	[ "$refresh" = true ] && "$GEARLIB"/gxp/refresh
+
+	while [ "$1" ]; do
+		dl_pkgs="$dl_pkgs $(deplist "$1") $1"
+		shift
+	done
+
+	if [ "$upgrade" = true ]; then
+		for pkg in "$GXP_DB"/*/; do
+			echo "$dl_pkgs" | grep "${pkg##*/}" &&
+				continue
+
+			. "$pkg"/info
+			[ "$(versionCompare "$VERSION" "$(pkg_version "${pkg##*/}")")" = "<" ] &&
+				dl_pkgs="$dl_pkgs ${pkg##*/}"
+
+			unset VERSION
+		done
+		unset NAME DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS
+	fi
+
+	echo "Total packages to download: $dl_pkgs"
+
+	case "$always" in
+	yes) ;;
+	no) return 0 ;;
+	*)
+		read -rn 1 -p "Confirm? [Y/n]" confirm
+		case "$confirm" in
+		[Yy]) ;;
+		*) return 0 ;;
+		esac
+		;;
+	esac
+
+	for pkg in $dl_pkgs; do
+		dl_files="$dl_files $("$GEARLIB"/gxp/fetch "$pkg")"
+	done
+
+	case "$mode" in
+	sync) for pkg in $dl_files; do
+		"$GEARLIB"/gxp/install "$pkg"
+	done ;;
+	download) return 0 ;;
+	esac
+}
+
+query() {
+	echo
+}
+
+while getopts "c:hjkqSQR" opt; do
+	case "$opt" in
+	c) config=$OPTARG ;;
+	h) usage && exit ;;
+	j) always=yes ;;
+	k) always=no ;;
+	q) quiet=true ;;
+	S)
+		mode=sync
+		while getopts "uwy" subopt; do
+			case "$subopt" in
+			u) upgrade=true ;;
+			w) mode=download ;;
+			y) refresh=true ;;
+			*) usage && exit 1 ;;
+			esac
+		done
+		shift $((OPTIND - 1))
+		sync $@
+		;;
+	Q)
+		mode=index
+		while getopts "ils" subopt; do
+			case "$subopt" in
+			i) info=true ;;
+			l) filelist=true ;;
+			r) mode=repo ;;
+			s) mode=search ;;
+			*) usage && exit 1 ;;
+			esac
+		done
+		shift $((OPTIND - 1))
+		query $@
+		;;
+	R)
+		while getopts "ds" subopt; do
+			case "$subopt" in
+			d) nodepcheck=true ;;
+			s) clean=true ;;
+			*) usage && exit 1 ;;
+			esac
+		done
+		shift $((OPTIND - 1))
+		;;
+	*) usage && exit 1 ;;
+	esac
+done
+
+. "$(readlink -f "$config")"

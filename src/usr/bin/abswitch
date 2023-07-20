@@ -1,6 +1,6 @@
 #!/bin/bash
 
-OLD_MODE=$(/usr/lib/gearlock/sysup/checkab)
+OLD_MODE=$("$GEARLIB"/sysup/checkab)
 MODE=
 
 die() { echo "==> ERROR: $*" && exit 1; }
@@ -22,9 +22,7 @@ MODE=$_
   die "Your current system has already been '$MODE'"
 
 SYSTEM=
-case "$SYSTEM_TYPE" in
-?fs | img) COMP=".$SYSTEM_TYPE" ;;
-esac
+[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
 case "$MODE" in
 ab)

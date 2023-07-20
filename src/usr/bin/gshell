@@ -40,10 +40,13 @@ esac
 
 export ROOT \
   BOOT_PART \
-  SRC SYSTEM \
+  SRC \
+  SYSTEM \
   DATA \
   GEARLOCK \
   SRCDIR \
+  GEARLIB \
+  GEARDATA \
   LOG \
   SYSTEM_TYPE
 
