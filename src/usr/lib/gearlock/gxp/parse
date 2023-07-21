@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for pkg in "$@"; do
+  temp=$(mktemp -q)
+  "GEARLIB"/extract "$pkg" "$temp" info
+done

@@ -67,5 +67,5 @@ case "$confirm" in
 esac
 
 for pkg in $instfile; do
-	"$GEARLIB"/gxp/installfile -d "$pkg" || exit 1
+	"$GEARLIB"/gxp/installfile "$pkg" || exit 1
 done

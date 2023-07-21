@@ -116,72 +116,6 @@ refreshdb() {
 	done
 }
 
-sync() {
-	local dl_pkgs pkg pkgname newver
-
-	if [ "$refresh" = true ]; then
-		refreshdb
-		[ "$1" ] || return
-	fi
-
-	while [ "$1" ]; do
-		case "$1" in
-		*/*)
-			echo "Invalid package '$1'"
-			continue
-			;;
-		esac
-		dl_pkgs="$dl_pkgs $(pkg_deplist "${1,,}") ${1,,}"
-		shift
-	done
-
-	if [ "$upgrade" = true ]; then
-		for pkg in "$GXP_DB"/*/; do
-			pkgname=${pkg##*/}
-			newver=
-
-			echo "$dl_pkgs" | grep "$pkgname" &&
-				continue
-
-			. "$pkg"/info
-			newver=$(pkg_version "$pkgname" | awk '{print $2}')
-			[ "$(versionCompare "$VERSION" "$newver")" = "<" ] &&
-				dl_pkgs="$dl_pkgs $pkgname"
-
-			unset VERSION
-		done
-		unset NAME DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
-	fi
-
-	echo "Total packages to download: $dl_pkgs"
-
-	case "$mode" in
-	sync) if [ "$always" ]; then
-		echo "$always" | "$GEARLIB"/gxp/install "$dl_pkgs"
-	else
-		"$GEARLIB"/gxp/install "$dl_pkgs"
-	fi ;;
-	download)
-		case "$always" in
-		y) ;;
-		n) return ;;
-		*)
-			read -rn 1 -p "Confirm? [Y/n]" confirm
-			case "$confirm" in
-			[Yy]) ;;
-			*) return ;;
-			esac
-			;;
-		esac
-		local fetched
-		for pkg in $dl_pkgs; do
-			fetched=$(pkg_version "$pkg")
-			"$GEARLIB"/gxp/fetch "$(echo "$fetched" | awk '{print $1}')" "$(echo "$fetched" | awk '{print $3}')"
-		done
-		;;
-	esac
-}
-
 query() {
 	print_pkginfo() {
 		local importfile searchdir searchtype depth type=$1 key=$2 pkg oldver
@@ -287,6 +221,92 @@ remove() {
 	echo
 }
 
+sync() {
+	local dl_pkgs pkg pkgname newver
+
+	if [ "$refresh" = true ]; then
+		refreshdb
+		[ "$1" ] || return
+	fi
+
+	while [ "$1" ]; do
+		case "$1" in
+		*/*)
+			echo "Invalid package '$1'"
+			continue
+			;;
+		esac
+		dl_pkgs="$dl_pkgs $(pkg_deplist "${1,,}") ${1,,}"
+		shift
+	done
+
+	if [ "$upgrade" = true ]; then
+		for pkg in "$GXP_DB"/*/; do
+			pkgname=${pkg##*/}
+			newver=
+
+			echo "$dl_pkgs" | grep "$pkgname" &&
+				continue
+
+			. "$pkg"/info
+			newver=$(pkg_version "$pkgname" | awk '{print $2}')
+			[ "$(versionCompare "$VERSION" "$newver")" = "<" ] &&
+				dl_pkgs="$dl_pkgs $pkgname"
+
+			unset VERSION
+		done
+		unset NAME DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
+	fi
+
+	echo "Total packages to download: $dl_pkgs"
+
+	case "$mode" in
+	sync) if [ "$always" ]; then
+		echo "$always" | "$GEARLIB"/gxp/install "$dl_pkgs"
+	else
+		"$GEARLIB"/gxp/install "$dl_pkgs"
+	fi ;;
+	download)
+		case "$always" in
+		y) ;;
+		n) return ;;
+		*)
+			read -rn 1 -p "Confirm? [Y/n]" confirm
+			case "$confirm" in
+			[Yy]) ;;
+			*) return ;;
+			esac
+			;;
+		esac
+		local fetched
+		for pkg in $dl_pkgs; do
+			fetched=$(pkg_version "$pkg")
+			"$GEARLIB"/gxp/fetch "$(echo "$fetched" | awk '{print $1}')" "$(echo "$fetched" | awk '{print $3}')"
+		done
+		;;
+	esac
+}
+
+insfile() {
+	local pkg list fname oldpwd
+	for pkg in "$@"; do
+		if echo "$pkg" | grep -E "^[a-z]+://"; then
+			fname=${pkg##*/}
+			oldpwd=$(pwd)
+			cd "$GXP_CACHE/pkg"
+			curl -LO "$pkg" ||
+				wget "$pkg" ||
+				echo "Failed to fetch '$pkg'" && cd "$oldpwd" && return 1
+			cd "$oldpwd"
+			list="$list $GXP_CACHE/pkg/$fname"
+		else
+			list="$list $pkg"
+		fi
+	done
+
+	"$GEARLIB"/gxp/parse "$list"
+}
+
 while getopts "c:hjkqQRSU" opt; do
 	case "$opt" in
 	c) config=$OPTARG ;;
@@ -336,7 +356,17 @@ while getopts "c:hjkqQRSU" opt; do
 		. "$(readlink -f "$config")"
 		sync $@
 		;;
-	U) ;;
+	U)
+		while getopts "d" subopt; do
+			case "$subopt" in
+			d) nodepcheck=true ;;
+			*) usage && exit 1 ;;
+			esac
+			shift $((OPTIND - 1))
+			. "$(readlink -f "$config")"
+			insfile $@
+		done
+		;;
 	*) usage && exit 1 ;;
 	esac
 done

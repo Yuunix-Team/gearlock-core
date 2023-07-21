@@ -1,0 +1,37 @@
+#!/bin/bash
+# busybox-compatible file extract tool for different file types
+
+while [ "$1" ]; do
+  case "$1" in
+  -f) FILES=${2//,/ } && shift ;;
+  *) [ "$IN" ] && OUT=$1 || IN=$1 ;;
+  esac
+  shift
+done
+
+[ "$OUT" ] && mdkir -p "$OUT"
+
+case "$IN" in
+*.t[gx]z | *.tar | *.tar.[gx]z | *.tar.lzma | *.tar.bz2)
+  tar ${OUT:+-C "$OUT"} -xaf "$IN" $FILES
+  ;;
+*.t7z | *.tar.7z)
+  7z x -so "$IN" | tar ${OUT:+-C "$OUT"} -xf - $FILES
+  ;;
+*.tar.*)
+  case "$IN" in
+  *.br) : brotli ;;
+  *.lz) : lzip ;;
+  *.lzo) : lzop ;;
+  *.lz4) : lz4 ;;
+  *.zst) : zstd ;;
+  esac
+  $_ -dc <"$IN" | tar ${OUT:+-C "$OUT"} -xf - $FILES
+  ;;
+*.7z) if [ "$FILES" ]; then
+  7z e ${OUT:+-o"$OUT"} "$IN" $FILES
+else
+  7z x ${OUT:+-o"$OUT"} "$IN"
+fi ;;
+*.zip) unzip "$IN" ${OUT:+-d "$OUT"} $FILES ;;
+esac

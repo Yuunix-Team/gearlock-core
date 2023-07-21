@@ -1,1 +1,45 @@
 #!/bin/bash
+
+if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
+  TMPDIR=$SRCDIR/tmp
+  [ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
+else
+  TMPDIR=/data/local/tmp
+fi
+
+workd="$TMPDIR/pkg"
+rm -rf "$workd"
+mkdir -p "$workd"
+"$GEARLIB"/extract "$1" "$workd"
+
+installed=
+while read -r file; do
+  case "$file" in
+  system/lib/modules/* | usr/lib/modules/* | lib/modules/*)
+    [ -d "$workd/$file" ] && mkdir -p "/$file"
+    ;;
+  esac
+
+  [ -d "$workd/$file" ] && continue
+
+  installed="$installed $file"
+  if ! mv -f "$workd/$file" "/$file"; then
+    error=true
+    break
+  fi
+done <"$workd/files"
+
+if [ "$error" ]; then
+  rm -rf $installed
+  exit 1
+fi
+
+. "$workd/info"
+
+mkdir -p "$GXP_DB/$NAME"
+mv -f "$workd/info" "$GXP_DB/$NAME"
+mv -f "$workd/files" "$GXP_DB/$NAME"
+
+for prov in $PROVIDES; do
+  ln -s "$NAME" "$GXP_DB/$prov"
+done
