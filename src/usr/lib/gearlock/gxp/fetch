@@ -26,9 +26,16 @@ cd "$GXP_CACHE/pkg"
 
 IPS="
 "
-for server in $SERVERS;do
-  filefetch "$server/$FILE" && echo "$(pwd)/$FILE" && break
+for server in $SERVERS; do
+  if filefetch "$server/$FILE"; then
+    echo "$(pwd)/$FILE"
+    [ "$getsig" ] || filefetch "$server/$FILE.sig"
+    got=true
+    break
+  fi
 done
 unset IPS
 
 cd "$oldpwd"
+
+[ "$got" ] || exit 1
