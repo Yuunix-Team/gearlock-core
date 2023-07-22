@@ -11,7 +11,7 @@ for pkg in "$@"; do
 		conflicts="$conflicts ${real_conflict##*/}"
 	fi
 
-	. "$GXP_CACHE/repo/$(pkg_version "$pkg" | cut -f 1)/$1"
+	. "$GXP_CACHE/repo/$(pkg_version "$pkg" | awk '{print $1}')/$1"
 	for subpkg in $PROVIDES; do
 		if [ -d "$GXP_DB/$subpkg" ]; then
 			conflicts="$conflicts $subpkg"
@@ -41,7 +41,7 @@ for pkg in "$@"; do
 	done
 
 	pkgmax=$(pkg_version "$pkg")
-	fetched=$("$GEARLIB"/gxp/fetch -s "$(echo "$pkgmax" | cut -f 1)" "$(echo "$pkgmax" | awk '{print $3}')") || exit 1
+	fetched=$("$GEARLIB"/gxp/fetch -s "$(echo "$pkgmax" | awk '{print $1}')" "$(echo "$pkgmax" | awk '{print $3}')") || exit 1
 
 	"$GEARLIB"/checksum "${fetched}.sig" "$fetched" || exit 1
 

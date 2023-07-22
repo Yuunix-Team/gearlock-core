@@ -3,7 +3,7 @@
 get_bsize() {
   case "${1}" in
   *.tgz | *.gz) gzip -l "$1" | tail -1 | awk '{print $2}' ;;
-  *.tlz | *.lz) lzip -l "$1" | tail -1 | cut -f 1 ;;
+  *.tlz | *.lz) lzip -l "$1" | tail -1 | awk '{print $1}' ;;
   *.t7z | *.7z) 7z l "$1" | tail -1 | awk '{print $3}' ;;
   *.txz | *.xz) xzcat "$1" | wc -c ;;
   *.lzma) lzcat "$1" | wc -c ;;
@@ -11,7 +11,7 @@ get_bsize() {
   *.lz4) lz4cat "$1" | wc -c ;;
   *.zst) zstdcat "$1" | wc -c ;;
   *.lzo) lzop -l "$1" | tail -1 | awk '{ print $3 }' ;;
-  *.tar) du -b "$1" | cut -f 1 ;;
+  *.tar) du -b "$1" | awk '{print $1}' ;;
   *.zip) unzip -Zt "$1" | awk '{ print $3 }' ;;
   esac
   [ $? = 0 ] || exit 1
