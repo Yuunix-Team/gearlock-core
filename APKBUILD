@@ -1,9 +1,9 @@
 # Maintainer: Shadichy <shadichy.dev@gmail.com>
 pkgname=gearlock
-pkgver=0.0.1
+pkgver=2:7.3.15
 # shellcheck disable=SC2034 # used for git versions, keep around for next time
 _ver=${pkgver%_git*}
-pkgrel=2
+pkgrel=1
 pkgdesc="GearLock recovery project for Android on PC"
 url="https://github.com/Yuunix-Team/gearlock-core"
 arch="all"
@@ -22,7 +22,7 @@ depends="
 	mdev-conf
 	"
 subpackages="$pkgname-doc"
-install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
+# install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
 
 provides="gearlock initramfs-generator mkinitfs"
 provider_priority=900 # highest
