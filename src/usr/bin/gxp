@@ -58,7 +58,7 @@ pkg_deplist() {
 
 	local deps pkg oldver subdeps
 
-	. "$GXP_CACHE/repo/$(pkg_version "$1" | awk '{print $1}')/$1"
+	. "$GXP_CACHE/repo/$(pkg_version "$1" | cut -f 1)/$1"
 
 	for pkg in $DEPENDS; do
 		oldver=$(sed -n "s/VERSION=//p" "$GXP_DB/$NAME/info")
@@ -373,7 +373,7 @@ sync() {
 		local fetched
 		for pkg in $dl_pkgs; do
 			fetched=$(pkg_version "$pkg")
-			"$GEARLIB"/gxp/fetch "$(echo "$fetched" | awk '{print $1}')" "$(echo "$fetched" | awk '{print $3}')"
+			"$GEARLIB"/gxp/fetch "$(echo "$fetched" | cut -f 1)" "$(echo "$fetched" | awk '{print $3}')"
 		done
 		;;
 	esac

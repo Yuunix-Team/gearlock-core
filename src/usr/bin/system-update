@@ -36,11 +36,31 @@ else
 	[ "$confirm" = y ] || exit
 fi
 
-SYSIMAGE=$("$GEARLIB"/sysup/convert "$SYSIMAGE") ||
-	die "Not enough space to extract/compress '$SYSIMAGE'"
+OLD_SYSTEM_TYPE=$SYSTEM_TYPE
+case "$(blkid -o value -s TYPE "$NEWIMG")" in
+squashfs | erofs)
+	SYSTEM_TYPE=img
+	export SYSTEM_TYPE
+	;;
+esac
 
-"$GEARLIB"/sysup/reinstall_patch "$SYSIMAGE" ||
-	die "Failed to patch '$SYSIMAGE'"
+while :; do
+
+	SYSIMAGE=$("$GEARLIB"/sysup/convert "$SYSIMAGE") ||
+		die "Not enough space to extract/compress '$SYSIMAGE'"
+
+	[ "$patched" ] ||
+		"$GEARLIB"/sysup/reinstall_patch "$SYSIMAGE" &&
+		patched=true ||
+		die "Failed to patch '$SYSIMAGE'"
+
+	if [ "$OLD_SYSTEM_TYPE" = "$SYSTEM_TYPE" ]; then
+		break
+	fi
+
+	SYSTEM_TYPE=$OLD_SYSTEM_TYPE
+	export SYSTEM_TYPE
+done
 
 SYSUP_STATUS=$("$GEARLIB"/sysup/"sysup_$MODE" "$SYSIMAGE")
 [ $? = 0 ] || die "$SYSUP_STATUS"
