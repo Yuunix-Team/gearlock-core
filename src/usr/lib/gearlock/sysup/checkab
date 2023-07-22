@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if ls "$SRCDIR"/system_* | grep -E '_[ab](\.(img|[se]fs))?$'; then
+if ls "$SRCDIR"/system_* | grep -qE '_[ab](\.(img|[se]fs))?$'; then
   echo ab
 else
   echo aonly

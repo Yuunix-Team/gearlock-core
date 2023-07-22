@@ -21,10 +21,10 @@ for pkg in "$@"; do
 
 	for subpkg in $conflicts; do
 		depbreak=
-		for installed in "$GXP_DB"/*; do
+		for installed in "$GXP_DB"/*/; do
 			. "$installed/info"
-			if echo "$DEPENDS" | grep "$subpkg"; then
-				depbreak="$depbreak,$installed"
+			if echo "$DEPENDS" | grep -q "$subpkg"; then
+				depbreak="$depbreak,$(basename "$installed")"
 			fi
 			unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
 		done
@@ -50,7 +50,7 @@ for pkg in "$@"; do
 done
 
 if [ "$remove_list" ]; then
-	"$GEARLIB"/gxp/remove $remove_list
+	remove $remove_list
 fi
 
 freespace=$("$GEARLIB"/checkfree)

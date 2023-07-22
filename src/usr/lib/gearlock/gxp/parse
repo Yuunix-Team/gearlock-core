@@ -14,7 +14,7 @@ for pkg in "$@"; do
   . "$temp/info"
   pkgname=$NAME
 
-  if echo "$provide_list" | grep "$NAME"; then
+  if echo "$provide_list" | grep -q "$NAME"; then
     echo "Package conflict detected" && exit
   fi
 
@@ -36,10 +36,10 @@ for pkg in "$@"; do
 
   for subpkg in $conflicts; do
     depbreak=
-    for installed in "$GXP_DB"/*; do
+    for installed in "$GXP_DB"/*/; do
       . "$installed/info"
-      if echo "$DEPENDS" | grep "$subpkg"; then
-        depbreak="$depbreak,$installed"
+      if echo "$DEPENDS" | grep -q "$subpkg"; then
+        depbreak="$depbreak,$(basename "$installed")"
       fi
       unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
     done
@@ -62,7 +62,7 @@ done
 
 depend_list=
 for deps in $tmp_depend_list; do
-  if echo "$provide_list" | grep "$deps"; then
+  if echo "$provide_list" | grep -q "$deps"; then
     continue
   fi
   depend_list="$depend_list $deps"
@@ -73,7 +73,7 @@ if [ "$depend_list" ]; then
 fi
 
 if [ "$remove_list" ]; then
-  "$GEARLIB"/gxp/remove $remove_list
+  remove $remove_list
 fi
 
 echo
@@ -85,6 +85,7 @@ case "$confirm" in
 *) exit 0 ;;
 esac
 
+explicit=true
 for pkg in $instfile; do
 	"$GEARLIB"/gxp/installfile "$pkg" || exit 1
 done

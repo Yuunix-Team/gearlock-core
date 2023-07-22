@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# failsafe
+[ "$1" ] || return
+
 if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
   TMPDIR=$SRCDIR/tmp
   [ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
@@ -37,3 +40,9 @@ mv -f "$workd/files" "$GXP_DB/$NAME"
 for prov in $PROVIDES; do
   [ -e "$GXP_DB/$prov" ] || ln -s "$NAME" "$GXP_DB/$prov"
 done
+
+if [ "$explicit" = true ]; then
+  grep -q "$NAME" /etc/gxp.explicit || echo "$NAME" >>/etc/gxp.explicit
+fi
+
+unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST

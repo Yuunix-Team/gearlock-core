@@ -116,6 +116,33 @@ refreshdb() {
 	done
 }
 
+rm_deplist() {
+	[ "$nodepcheck" = true ] && return
+
+	local depbreak installed deprmlist subdeprm pkg
+
+	for installed in "$GXP_DB"/*/; do
+		. "$installed/info"
+		if echo "$DEPENDS" | grep -q "$1" &&
+			! echo "$remove_list" | grep -q "$NAME"; then
+			deprmlist="$deprmlist $(basename "$installed")"
+		fi
+		unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
+	done
+
+	if [ ! "$clean" ] && [ "$deprmlist" ]; then
+		depbreak=${deprmlist// /,}
+		echo "Remove $1 breaks dependency of ${depbreak#,}"
+		return 1
+	fi
+
+	for pkg in $deprmlist; do
+		subdeprm="$subdeprm $(rm_deplist "$pkg")"
+	done
+
+	echo "$subdeprm $deprmlist"
+}
+
 query() {
 	print_pkginfo() {
 		local importfile searchdir searchtype depth type=$1 key=$2 pkg oldver
@@ -218,12 +245,73 @@ EOF
 }
 
 remove() {
-	echo
+	local pkg subpkg rmlist nonorphans
+
+	for pkg in "$@"; do
+		[ -d "$GXP_DB/$pkg" ] && rmlist="$rmlist $pkg" && continue
+		echo "Package '$pkg' is not installed"
+	done
+
+	remove_list=$rmlist
+
+	for pkg in $rmlist; do
+		rmlist="$(rm_deplist "$pkg") $rmlist"
+	done
+
+	if [ "$clean" ]; then
+		# finding non-explicit, orphan packages
+		for pkg in "$GXP_DB"/*/; do
+			if echo "$rmlist" | grep -q "$(basename "$pkg")"; then
+				continue
+			fi
+			. "$pkg/info"
+			for subpkg in $DEPENDS; do
+				if echo "$nonorphans" | grep -q "$subpkg"; then
+					continue
+				fi
+				nonorphans="$nonorphans $subpkg"
+			done
+			unset NAME VERSION DESC ARCH LICENSE AUTHOR URL PROVIDES DEPENDS FILEONHOST
+		done
+
+		for pkg in "$GXP_DB"/*/; do
+			if echo "$rmlist" | grep -q "$(basename "$pkg")"; then
+				continue
+			fi
+			if echo "$nonorphans" | grep -q "$pkg" ||
+				grep -q "$pkg" /etc/gxp.explicit; then
+				continue
+			fi
+			rmlist="$rmlist $pkg"
+		done
+	fi
+
+	[ "$rmlist" ] || return
+
+	rmlist=$(echo "$rmlist" | xargs -n1 | sort -u | xargs)
+
+	echo "Total packages to be removed: $rmlist"
+	case "$always" in
+	y) ;;
+	n) return ;;
+	*)
+		read -rn 1 -p "Confirm? [Y/n]" confirm
+		case "$confirm" in
+		[Yy]) ;;
+		*) return ;;
+		esac
+		;;
+	esac
+
+	for pkg in $rmlist; do
+		"$GEARLIB"/gxp/remove "$pkg"
+	done
 }
 
 sync() {
 	local dl_pkgs pkg pkgname newver
 	explicit=$1
+	export explicit
 	shift
 
 	if [ "$refresh" = true ]; then
@@ -242,12 +330,14 @@ sync() {
 		shift
 	done
 
+	dl_pkgs=$(echo "$dl_pkgs" | xargs -n1 | sort -u | xargs)
+
 	if [ "$upgrade" = true ]; then
 		for pkg in "$GXP_DB"/*/; do
-			pkgname=${pkg##*/}
+			pkgname=$(basename $pkg)
 			newver=
 
-			echo "$dl_pkgs" | grep "$pkgname" &&
+			echo "$dl_pkgs" | grep -q "$pkgname" &&
 				continue
 
 			. "$pkg"/info
@@ -292,7 +382,7 @@ sync() {
 insfile() {
 	local pkg list fname oldpwd
 	for pkg in "$@"; do
-		if echo "$pkg" | grep -E "^[a-z]+://"; then
+		if echo "$pkg" | grep -qE "^[a-z]+://"; then
 			fname=${pkg##*/}
 			oldpwd=$(pwd)
 			cd "$GXP_CACHE/pkg"
