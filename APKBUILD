@@ -10,7 +10,7 @@ arch="all"
 license="GPL-2.0-only"
 # currently we do not ship any testsuite
 options="!check"
-makedepends_host="bash busybox"
+makedepends_host="bash busybox git"
 makedepends="$makedepends_host"
 depends="
 	busybox-binsh
