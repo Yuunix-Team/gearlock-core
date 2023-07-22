@@ -28,6 +28,8 @@ provides="gearlock initramfs-generator mkinitfs"
 provider_priority=900 # highest
 
 build() {
+	git submodule init
+	git submodule update
 	make VERSION=$pkgver-r$pkgrel
 }
 
