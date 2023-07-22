@@ -40,10 +40,6 @@ for pkg in "$@"; do
 		esac
 	done
 
-	if [ "$remove_list" ]; then
-		"$GEARLIB"/gxp/remove $remove_list
-	fi
-
 	pkgmax=$(pkg_version "$pkg")
 	fetched=$("$GEARLIB"/gxp/fetch -s "$(echo "$pkgmax" | awk '{print $1}')" "$(echo "$pkgmax" | awk '{print $3}')") || exit 1
 
@@ -53,12 +49,18 @@ for pkg in "$@"; do
 	instsize=$((instsize + $("$GEARLIB"/decompsize "$fetched")))
 done
 
+if [ "$remove_list" ]; then
+	"$GEARLIB"/gxp/remove $remove_list
+fi
+
 freespace=$("$GEARLIB"/checkfree)
 
 ((freespace < instsize)) && echo "Not enough space" && exit 1
 
 echo
-echo "Packages to be installed: $*"
+[ "$explicit" = true ] &&
+	echo "Packages to be installed: $*" ||
+	echo "Dependencies to be installed: $*"
 echo "Total installed size: $((instsize / 1024))Mb"
 read -rn 1 -p "Perform installation? [Y/n]" confirm
 case "$confirm" in

@@ -223,6 +223,8 @@ remove() {
 
 sync() {
 	local dl_pkgs pkg pkgname newver
+	explicit=$1
+	shift
 
 	if [ "$refresh" = true ]; then
 		refreshdb
@@ -354,7 +356,7 @@ while getopts "c:hjkqQRSU" opt; do
 		done
 		shift $((OPTIND - 1))
 		. "$(readlink -f "$config")"
-		sync $@
+		sync true $@
 		;;
 	U)
 		while getopts "d" subopt; do

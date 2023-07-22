@@ -14,13 +14,7 @@ mkdir -p "$workd"
 
 installed=
 while read -r file; do
-  case "$file" in
-  system/lib/modules/* | usr/lib/modules/* | lib/modules/*)
-    [ -d "$workd/$file" ] && mkdir -p "/$file"
-    ;;
-  esac
-
-  [ -d "$workd/$file" ] && continue
+  [ -d "$workd/$file" ] && mkdir -p "/$file" && continue
 
   installed="$installed $file"
   if ! mv -f "$workd/$file" "/$file"; then
@@ -41,5 +35,5 @@ mv -f "$workd/info" "$GXP_DB/$NAME"
 mv -f "$workd/files" "$GXP_DB/$NAME"
 
 for prov in $PROVIDES; do
-  ln -s "$NAME" "$GXP_DB/$prov"
+  [ -e "$GXP_DB/$prov" ] || ln -s "$NAME" "$GXP_DB/$prov"
 done
