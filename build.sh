@@ -17,4 +17,4 @@ while read -r file; do
   *) cp "$file" "$target" ;;
   esac
 
-done <<<"$(find src -type f)"
+done <<<"$(find gearlock -type f)"

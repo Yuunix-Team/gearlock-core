@@ -1,8 +1,8 @@
 # Maintainer: Shadichy <shadichy.dev@gmail.com>
 pkgname=gearlock
-pkgver=2:7.3.15
+pkgver=2.0.1
 # shellcheck disable=SC2034 # used for git versions, keep around for next time
-_ver=${pkgver%_git*}
+_ver=${pkgver%_git*}_compat7.3.15
 pkgrel=1
 pkgdesc="GearLock recovery project for Android on PC"
 url="https://github.com/Yuunix-Team/gearlock-core"
