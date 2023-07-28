@@ -4,7 +4,7 @@ mkdir -p build
 
 while read -r file; do
   header=$(head -1 "$file")
-  target=build/${file#src}
+  target=build/${file#gearlock}
 
   target_dir=${target%/*}
   [ -d "$target_dir" ] || mkdir -p "$target_dir"

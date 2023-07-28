@@ -24,7 +24,7 @@ depends="
 subpackages="$pkgname-doc"
 # install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
 
-provides="gearlock initramfs-generator mkinitfs"
+provides="initramfs-generator mkinitfs"
 provider_priority=900 # highest
 
 build() {
