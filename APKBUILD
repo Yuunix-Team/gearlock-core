@@ -21,7 +21,7 @@ depends="
 	lddtree>=1.25
 	mdev-conf
 	"
-subpackages="$pkgname-doc"
+# subpackages="$pkgname-doc"
 # install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
 
 provides="initramfs-generator mkinitfs"
