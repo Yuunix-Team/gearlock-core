@@ -88,7 +88,7 @@ INSTALL		:= install
 build:
 	./build.sh
 
-install: $(DIRLIST) $(FILELIST)
+install:
 	for d in $(DIRLIST); do \
 		$(INSTALL) -dm755 $(DESTDIR)/$$d;\
 	done
