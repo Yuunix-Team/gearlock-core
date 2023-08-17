@@ -20,12 +20,12 @@ chroot_setup() {
 		chroot_add_mount /android/data "$1/data" --bind &&
 		chroot_add_mount /android/vendor "$1/vendor" --bind &&
 		chroot_if_dir /android/apex /android/apex "$1/apex" --bind &&
-		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,strictatime,nodev,nosuid &&
+		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
 		CHROOT_ACTIVE_MOUNTS="$1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
-[ "$EUID" = "0" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
+# [ "$EUID" = "0" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
 
-chroot_setup "$chrootdir" || die "Failed to setup chroot %s" "$chrootdir"
+chroot_setup "$chrootdir" || die "Failed to setup chroot $chrootdir"
 
-SHELL=/bin/sh chroot "$chrootdir" /bin/gshell -c "$*"
+SHELL=/bin/sh chroot "$chrootdir" /bin/gshell -c $@

@@ -18,19 +18,22 @@ chroot_setup() {
 	chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
 		chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&
 		chroot_if_dir /sys/firmware/efi/efivars efivarfs "$1/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev &&
-		chroot_add_mount /dev "$1/dev" --rbind &&
+		chroot_add_mount /dev "$1/dev" --bind &&
 		chroot_add_mount /system "$1/system" --bind &&
 		chroot_add_mount /data "$1/data" --bind &&
 		chroot_add_mount /vendor "$1/vendor" --bind &&
 		chroot_if_dir /apex /apex "$1/apex" --bind &&
-		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,strictatime,nodev,nosuid &&
-		CHROOT_ACTIVE_MOUNTS="$1/dev/cpuset $1/dev/cpuctl $1/dev/memcg $1/dev/pts $CHROOT_ACTIVE_MOUNTS"
+		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
+		CHROOT_ACTIVE_MOUNTS="$1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
-[ "$EUID" = "0" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
+[ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
 
-chroot_setup "$chrootdir" || die "Failed to setup chroot %s" "$chrootdir"
+chroot_setup "$chrootdir" || die "Failed to setup chroot $chrootdir"
+
+dns=$(getprop net.dns1)
+[ "$dns" ] || dns='8.8.8.8'
 
 SHELL=/bin/sh chroot "$chrootdir" /bin/gshell -c " \
-echo -e \"nameserver $(getprop net.dns1 || echo '8.8.8.8')\" > /etc/resolv.conf; \
+echo -e \"nameserver $dns\" > /etc/resolv.conf; \
 ${*:-/bin/bash}"

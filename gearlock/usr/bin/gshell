@@ -5,6 +5,7 @@ export PATH="/bin/:/system/bin:/system/xbin"
 SYSTEM=system.img
 DATA=data.img
 
+set_cmdline(){
 set -- $(cat /proc/cmdline)
 for arg in "$@"; do
   case "$arg" in
@@ -15,6 +16,7 @@ for arg in "$@"; do
   GEARLOCK=*) GEARLOCK="${arg#*=}" ;;
   esac
 done
+}
 
 uuidlabel() {
   case "$1" in
@@ -23,6 +25,7 @@ uuidlabel() {
   esac
 }
 
+set_cmdline
 ROOT=$(uuidlabel "$ROOT")
 BOOT_PART=$(uuidlabel "$BOOT_PART")
 SYSTEM=$(uuidlabel "$SYSTEM")
@@ -43,4 +46,4 @@ export ROOT \
   LOG \
   SYSTEM_TYPE
 
-bash $@
+bash "$@"

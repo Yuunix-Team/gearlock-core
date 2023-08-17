@@ -36,6 +36,14 @@ arrayize_config() {
 	set +f
 }
 
+funcgrep() {
+	awk -v funcmatch="$1" '
+        /^[[:space:]]*[[:alnum:]_]+[[:space:]]*\([[:space:]]*\)/ {
+            match($1, funcmatch)
+            print substr($1, RSTART, RLENGTH)
+        }' "$2"
+}
+
 all_modules() {
 	# Add modules to the initcpio, filtered by grep.
 	#   $@: filter arguments to grep
@@ -60,7 +68,7 @@ all_modules() {
 
 		mod="${mod##*/}"
 		mod="${mod%.ko*}"
-		printf '%s\n' "${mod//-/_}"
+		echo '%s\n' "${mod//-/_}"
 	done < <(find "$_d_kmoduledir" -name '*.ko*' -print0 2>/dev/null | grep -EZz "$@")
 
 	((count))
@@ -90,7 +98,7 @@ add_checked_modules() {
 	# _autodetect_cache is declared in mkinitcpio and assigned in install/autodetect
 	# shellcheck disable=SC2154
 	if ((${#_autodetect_cache[*]})); then
-		mapfile -t mods < <(all_modules "$@" | grep -xFf <(printf '%s\n' "${!_autodetect_cache[@]}"))
+		mapfile -t mods < <(all_modules "$@" | grep -xFf <(echo '%s\n' "${!_autodetect_cache[@]}"))
 	else
 		mapfile -t mods < <(all_modules "$@")
 	fi
@@ -129,10 +137,13 @@ add_firmware() {
 	return "$r"
 }
 
+# shellcheck disable=SC2317
 add_module() {
 	# Add a kernel module to the initcpio image. Dependencies will be
 	# discovered and added.
 	#   $1: module name
+
+	[ "$1" ] || return
 
 	local target='' module='' softdeps=() deps=() field='' value='' firmware=()
 	local ign_errors=0 found=0
@@ -180,13 +191,13 @@ add_module() {
 
 	if ((!found)); then
 		((ign_errors || _addedmodules["$target"])) && return 0
-		printf "module not found: '%s'" "$target"
+		echo "module not found: $target"
 		return 1
 	fi
 
 	if ((${#firmware[*]})); then
 		add_firmware "${firmware[@]}" ||
-			printf "Possibly missing firmware for module: '%s'" "$target"
+			echo "Possibly missing firmware for module: $target"
 	fi
 
 	# handle module quirks
@@ -195,18 +206,10 @@ add_module() {
 		add_module "nls_ascii?" # from CONFIG_FAT_DEFAULT_IOCHARSET
 		add_module "nls_cp437?" # from CONFIG_FAT_DEFAULT_CODEPAGE
 		;;
-	ocfs2)
-		add_module "configfs?"
-		;;
-	btrfs)
-		add_module "libcrc32c?"
-		;;
-	f2fs)
-		add_module "crypto-crc32?"
-		;;
-	ext4)
-		add_module "crypto-crc32c?"
-		;;
+	ocfs2) add_module "configfs?" ;;
+	btrfs) add_module "libcrc32c?" ;;
+	f2fs) add_module "crypto-crc32?" ;;
+	ext4) add_module "crypto-crc32c?" ;;
 	esac
 }
 
@@ -274,7 +277,7 @@ add_symlink() {
 
 	# find out the link target
 	if [[ "$name" == "$target" ]]; then
-		linkobject="$(find "$target" -prune -printf '%l')"
+		linkobject="$(find "$target" -prune -echo '%l')"
 		# use relative path if the target is a file in the same directory as the link
 		# anything more would lead to the insanity of parsing each element in its path
 		if [[ "$linkobject" != *'/'* && ! -L "${name%/*}/${linkobject}" ]]; then
@@ -286,7 +289,7 @@ add_symlink() {
 		target="$(realpath -eq -- "$target")"
 	fi
 	if [[ -z "$target" ]]; then
-		printf "invalid symlink: '%s'" "$name"
+		echo "invalid symlink: $name"
 		return 1
 	fi
 
@@ -306,7 +309,7 @@ add_file() {
 	local src="$1" dest="${2:-$1}" mode="$3" srcrealpath
 
 	if [[ ! -f "$src" ]]; then
-		printf "file not found: '%s'" "$src"
+		echo "file not found: $src"
 		return 1
 	fi
 
@@ -326,7 +329,7 @@ add_file() {
 	[[ -z "$mode" ]] && add_dir "${dest%/*}"
 
 	if [[ -z "$mode" ]]; then
-		command cp --remove-destination --preserve=mode,ownership "$src" "${tmpdir}${dest}"
+		command cp -pr "$src" "${tmpdir}${dest}"
 	else
 		command install -Dm"$mode" "$src" "${tmpdir}${dest}"
 	fi
@@ -340,7 +343,7 @@ add_runscript() {
 	local -a funcs
 
 	if ! script="$DATADIR/hooks/$hookname"; then
-		printf "runtime script for '%s' not found" "$hookname"
+		echo "runtime script for '%s' not found" "$hookname"
 		return
 	fi
 
@@ -386,7 +389,7 @@ add_binary() {
 			interpreter="${shebang##\#\!*([[:space:]])}"
 			# strip /usr/bin/env and warn if it is missing
 			if [[ "$interpreter" == '/usr/bin/env'* ]]; then
-				[[ -e "${tmpdir}/usr/bin/env" ]] || printf "Possibly missing '/usr/bin/env' for script: %s" "$binary"
+				[[ -e "${tmpdir}/usr/bin/env" ]] || echo "Possibly missing '/usr/bin/env' for script: %s" "$binary"
 				interpreter="${interpreter##'/usr/bin/env'+([[:space:]])}"
 			fi
 			# strip parameters
@@ -397,7 +400,7 @@ add_binary() {
 			elif [[ -e "${tmpdir}/${interpreter}" ]]; then
 				:
 			else
-				printf "Possibly missing '%s' for script: %s" "$interpreter" "$binary"
+				echo "Possibly missing '%s' for script: %s" "$interpreter" "$binary"
 			fi
 		fi
 		return 0
@@ -409,7 +412,7 @@ add_binary() {
 		if [[ "$line" =~ $regex ]]; then
 			sodep="${BASH_REMATCH[2]}"
 		elif [[ "$line" = *'not found' ]]; then
-			printf "binary dependency '%s' not found for '%s'" "${line%% *}" "$1"
+			echo "binary dependency '%s' not found for ${line%% *}" "$1"
 			((++_builderrors))
 			continue
 		fi
@@ -489,7 +492,7 @@ run_build_hook() {
 	# _d_install is assigned in mkinitcpio
 	# shellcheck disable=SC2154
 	# if ! script="$(PATH="$_d_install" type -P "$hook")"; then
-	#     printf "Hook '$hook' cannot be found"
+	#     echo "Hook '$hook' cannot be found"
 	#     return 1
 	# fi
 
@@ -497,7 +500,7 @@ run_build_hook() {
 
 	# check for deprecation
 	# if resolved="$(readlink -e "$script")" && [[ "${script##*/}" != "${resolved##*/}" ]]; then
-	#     printf "Hook '%s' is deprecated. Replace it with '%s' in your config" \
+	#     echo "Hook '%s' is deprecated. Replace it with '%s' in your config" \
 	#         "${script##*/}" "${resolved##*/}"
 	#     script="$resolved"
 	# fi
@@ -506,19 +509,19 @@ run_build_hook() {
 	unset -f build
 	# shellcheck disable=SC1090
 	if ! . "$script"; then
-		printf 'Failed to read %s' "$script"
+		echo 'Failed to read %s' "$script"
 		return 1
 	fi
 
 	if ! declare -f install_hook >/dev/null; then
-		printf "Hook '%s' has no install_hook function" "${script}"
+		echo "Hook '%s' has no install_hook function" "${script}"
 		return 1
 	fi
 
 	install_hook
 
 	# if we made it this far, return successfully. Hooks can
-	# do their own printf catching if it's severe enough, and
+	# do their own echo catching if it's severe enough, and
 	# we already capture errors from the add_* functions.
 	return 0
 }
@@ -528,7 +531,7 @@ install_modules() {
 	local -a xz_comp gz_comp zst_comp
 
 	if (($# == 0)); then
-		printf "No modules were added to the image. This is probably not what you want."
+		echo "No modules were added to the image. This is probably not what you want."
 		return 0
 	fi
 
@@ -552,7 +555,13 @@ install_modules() {
 	depmod -b "$tmpdir" "$kver"
 
 	# remove all non-binary module.* files (except devname for on-demand module loading)
-	rm "${tmpdir}${kerneldir}"/modules.!(*.bin|devname|softdep)
+	for f in "${tmpdir}${kerneldir}"/modules.*; do
+		case "$f" in
+		*.bin | *.devname | *.softdep) ;;
+		*) rm -f "$f" ;;
+		esac
+
+	done
 }
 
 build_image() {
@@ -571,8 +580,8 @@ build_image() {
 	if [[ -f "$out" ]]; then
 		local curr_size space_left_on_device
 
-		curr_size="$(stat --format="%s" "$out")"
-		space_left_on_device="$(($(stat -f --format="%a*%S" "$out")))"
+		curr_size="$(stat -c "%s" "$out")"
+		space_left_on_device="$(($(stat -f -c "%a*%S" "$out")))"
 
 		# check if there is enough space on the device to write the image to a tempfile, fallback otherwise
 		# this assumes that the new image is not more than 1¼ times the size of the old one
@@ -582,17 +591,15 @@ build_image() {
 	pushd "$tmpdir" >/dev/null || return
 
 	# Reproducibility: set all timestamps to 0
-	find . -mindepth 1 -execdir touch -hcd "@0" "{}" +
+	find . -mindepth 1 -exec touch -hcd "@0" "{}" +
 
 	# If this pipeline changes, |pipeprogs| below needs to be updated as well.
-	find . -mindepth 1 -printf '%P\0' |
-		sort -z |
-		LANG=C bsdtar --uid 0 --gid 0 --null -cnf - -T - |
-		LANG=C bsdtar --null -cf - --format=newc @- |
-		$compress "${comp[@]}" >"$compressout"
+	find . -mindepth 1 |
+		cpio -o -H 'newc' |
+		$compress ${comp[@]} >"$compressout"
 
 	pipestatus=("${PIPESTATUS[@]}")
-	pipeprogs=('find' 'sort' 'bsdtar (step 1)' 'bsdtar (step 2)' "$compress")
+	pipeprogs=('find' 'cpio' "$compress")
 
 	popd >/dev/null || return
 
@@ -604,14 +611,14 @@ build_image() {
 	done
 
 	if ((_builderrors)); then
-		printf "errors were encountered during the build. The image may not be complete."
+		echo "errors were encountered during the build. The image may not be complete."
 	fi
 
 	if [[ -n "$errmsg" ]]; then
-		printf "Image generation FAILED: '%s'" "$errmsg"
+		echo "Image generation FAILED: $errmsg"
 		return 1
 	elif ((_builderrors == 0)); then
-		printf "Image generation successful"
+		echo "Image generation successful"
 	fi
 
 	# sync and rename as we only wrote to a tempfile so far to ensure consistency
@@ -649,7 +656,7 @@ find_module_from_symbol() {
 			if decomp_to_stdout "$mod" | grep -Eq "^($symbols)" &>/dev/null; then
 				mod=${mod##*/}
 				mod="${mod%.ko*}"
-				printf '%s\n' "${mod//-/_}"
+				echo '%s\n' "${mod//-/_}"
 			fi
 		done < <(find "$moduledir" -name '*.ko*' -print0 2>/dev/null)
 	done
@@ -724,15 +731,16 @@ initfs_cpscripts() {
 			# only add real modules (2 == builtin)
 			((_addedmodules["$mod"] == 1)) && add+=("$mod")
 		done
-		((${#add[*]})) && printf 'MODULES="%s"\n' "${add[*]}"
+		((${#add[*]})) && echo 'MODULES="%s"\n' "${add[*]}"
 
-		printf '%s="%s"\n' \
+		echo '%s="%s"\n' \
 			'EARLYHOOKS' "${_runhooks['early']# }" \
 			'HOOKS' "${_runhooks['hooks']# }" \
 			'LATEHOOKS' "${_runhooks['late']# }" \
 			'BOOT_PART' "$BOOT_PART"
 	} >"$tmpdir/config"
 
+	echo "${_modpaths[*]}"
 	install_modules "${!_modpaths[@]}"
 
 	# this is simply a nice-to-have -- it doesn't matter if it fails.

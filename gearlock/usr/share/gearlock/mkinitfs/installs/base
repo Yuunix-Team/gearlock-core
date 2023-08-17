@@ -6,7 +6,7 @@ install_hook() {
   add_binary busybox
   add_file ""$GEARDATA"/mkinitfs/init" "/init"
 
-  add_file /lib/mdev
+  add_full_dir /lib/mdev
   map add_file /etc/modprobe.d/*.conf
   add_file /etc/mdev.conf
 
@@ -32,8 +32,8 @@ install_hook() {
     ;;
   *)
     case "$SYSTEM_TYPE" in
-    sfs) add_module "squashfs" ;;
-    efs) add_module "erofs" ;;
+    sfs) add_module "squashfs" 1;;
+    efs) add_module "erofs" 1;;
     esac
     add_module "ext4"
     ;;

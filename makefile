@@ -93,13 +93,13 @@ install:
 		$(INSTALL) -dm755 $(DESTDIR)/$$d;\
 	done
 	for i in $(FILELIST); do \
-		$(INSTALL) -Dm755 build/$$i $(DESTDIR)/;\
+		$(INSTALL) -Dm755 build/$$i $(DESTDIR)/$$i;\
 	done
 	for d in $(DOCSDIR); do \
 		$(INSTALL) -dm644 $(DESTDIR)/$$d;\
 	done
 	for i in $(DOCSFILE); do \
-		$(INSTALL) -D build/$$i $(DESTDIR)/;\
+		$(INSTALL) -D build/$$i $(DESTDIR)/$$i;\
 	done
 
 clean:
