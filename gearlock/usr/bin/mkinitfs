@@ -44,6 +44,7 @@ funcgrep() {
         }' "$2"
 }
 
+# shellcheck disable=SC2317
 all_modules() {
 	# Add modules to the initcpio, filtered by grep.
 	#   $@: filter arguments to grep
@@ -57,9 +58,9 @@ all_modules() {
 	done
 	shift $((OPTIND - 1))
 
-	# _d_kmoduledir is assigned in mkinitcpio
+	# kerneldir is assigned in mkinitcpio
 	# shellcheck disable=SC2154
-	while read -r -d '' mod; do
+	while read -r mod; do
 		((++count))
 
 		for f in "${modfilter[@]}"; do
@@ -68,8 +69,8 @@ all_modules() {
 
 		mod="${mod##*/}"
 		mod="${mod%.ko*}"
-		echo '%s\n' "${mod//-/_}"
-	done < <(find "$_d_kmoduledir" -name '*.ko*' -print0 2>/dev/null | grep -EZz "$@")
+		printf '%s\n' "${mod//-/_}"
+	done < <(find "$kerneldir" -name '*.ko*' 2>/dev/null | grep "$@")
 
 	((count))
 }
@@ -98,7 +99,7 @@ add_checked_modules() {
 	# _autodetect_cache is declared in mkinitcpio and assigned in install/autodetect
 	# shellcheck disable=SC2154
 	if ((${#_autodetect_cache[*]})); then
-		mapfile -t mods < <(all_modules "$@" | grep -xFf <(echo '%s\n' "${!_autodetect_cache[@]}"))
+		mapfile -t mods < <(all_modules "$@" | grep -xFf <(printf '%s\n' "${!_autodetect_cache[@]}"))
 	else
 		mapfile -t mods < <(all_modules "$@")
 	fi
@@ -343,7 +344,7 @@ add_runscript() {
 	local -a funcs
 
 	if ! script="$DATADIR/hooks/$hookname"; then
-		echo "runtime script for '%s' not found" "$hookname"
+		echo "runtime script for '$hookname' not found"
 		return
 	fi
 
@@ -389,7 +390,7 @@ add_binary() {
 			interpreter="${shebang##\#\!*([[:space:]])}"
 			# strip /usr/bin/env and warn if it is missing
 			if [[ "$interpreter" == '/usr/bin/env'* ]]; then
-				[[ -e "${tmpdir}/usr/bin/env" ]] || echo "Possibly missing '/usr/bin/env' for script: %s" "$binary"
+				[[ -e "${tmpdir}/usr/bin/env" ]] || echo "Possibly missing '/usr/bin/env' for script: $binary"
 				interpreter="${interpreter##'/usr/bin/env'+([[:space:]])}"
 			fi
 			# strip parameters
@@ -400,7 +401,7 @@ add_binary() {
 			elif [[ -e "${tmpdir}/${interpreter}" ]]; then
 				:
 			else
-				echo "Possibly missing '%s' for script: %s" "$interpreter" "$binary"
+				echo "Possibly missing '$interpreter' for script: $binary"
 			fi
 		fi
 		return 0
@@ -412,7 +413,7 @@ add_binary() {
 		if [[ "$line" =~ $regex ]]; then
 			sodep="${BASH_REMATCH[2]}"
 		elif [[ "$line" = *'not found' ]]; then
-			echo "binary dependency '%s' not found for ${line%% *}" "$1"
+			echo "binary dependency '$1' not found for ${line%% *}"
 			((++_builderrors))
 			continue
 		fi
@@ -509,12 +510,12 @@ run_build_hook() {
 	unset -f build
 	# shellcheck disable=SC1090
 	if ! . "$script"; then
-		echo 'Failed to read %s' "$script"
+		echo "Failed to read $script"
 		return 1
 	fi
 
 	if ! declare -f install_hook >/dev/null; then
-		echo "Hook '%s' has no install_hook function" "${script}"
+		echo "Hook '$script' has no install_hook function"
 		return 1
 	fi
 
@@ -656,7 +657,7 @@ find_module_from_symbol() {
 			if decomp_to_stdout "$mod" | grep -Eq "^($symbols)" &>/dev/null; then
 				mod=${mod##*/}
 				mod="${mod%.ko*}"
-				echo '%s\n' "${mod//-/_}"
+				printf '%s\n' "${mod//-/_}"
 			fi
 		done < <(find "$moduledir" -name '*.ko*' -print0 2>/dev/null)
 	done
@@ -731,9 +732,9 @@ initfs_cpscripts() {
 			# only add real modules (2 == builtin)
 			((_addedmodules["$mod"] == 1)) && add+=("$mod")
 		done
-		((${#add[*]})) && echo 'MODULES="%s"\n' "${add[*]}"
+		((${#add[*]})) && printf 'MODULES="%s"\n' "${add[*]}"
 
-		echo '%s="%s"\n' \
+		printf '%s="%s"\n' \
 			'EARLYHOOKS' "${_runhooks['early']# }" \
 			'HOOKS' "${_runhooks['hooks']# }" \
 			'LATEHOOKS' "${_runhooks['late']# }" \

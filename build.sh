@@ -11,7 +11,7 @@ while read -r file; do
 
   case "$header" in
   \#\!/*)
-    [ "$DEBUG" ] &&
+    [ "$DEBUG" == 0 ] &&
       ./tools/minifier/minifier.sh --shell="${header#*\!}" --output="$target" "$file" ||
       cp "$file" "$target"
     chmod +x "$target"

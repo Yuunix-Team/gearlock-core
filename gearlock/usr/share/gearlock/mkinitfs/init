@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/bin/busybox sh
+
+# Spread out busybox symlinks and make them available without full path
+/bin/busybox --install -s
+export PATH=/usr/bin:/system/bin:/system/xbin
 
 # some helpers
 # ebegin() {
@@ -169,10 +173,6 @@ find_mnt() {
 # 	fi
 # }
 
-# Spread out busybox symlinks and make them available without full path
-/bin/busybox --install -s
-export PATH=/usr/bin:/system/bin:/system/xbin
-
 # auto installation
 # [ "$AUTO_INSTALL" ] && INSTALL=1
 
@@ -250,6 +250,12 @@ check_root() {
 	mount_dir() { mount --bind "$1" "$2"; }
 	fs_type() { blkid -o value -s TYPE "$1"; }
 
+	err() {
+		echo "Failed to mount $1 to $2!"
+		cd /
+		return 1
+	}
+
 	case "$SYSTEM" in
 	/dev/* | UUID=* | LABEL=*)
 		SYSTEM=$(find_mnt "$SYSTEM")
@@ -261,35 +267,36 @@ check_root() {
 			;;
 		*) mount -t "$SYSTEMFS" "$SYSTEM" android ;;
 		esac
-		[ $? != 0 ] || return 1
+		[ $? != 0 ] || err "$SYSTEM" android
 		SYSTEM_BLK=true
 		;;
 	esac
 
+	cd /android
 	case "$DATA" in
 	/dev/* | UUID=* | LABEL=*)
 		DATA=$(find_mnt "$DATA")
 		DATAFS=$(fs_type "$DATA")
-		mount -t "$DATAFS" "$DATA" data || return 1
+		mount -t "$DATAFS" "$DATA" data || err "$DATA" data
 		DATA_BLK=true
 		;;
 	9p)
 		modprobe 9pnet_virtio &&
 			mount -t 9p -o trans=virtio data data -oversion=9p2000.L,posixacl,cache=loose ||
-			return 1
+			err "$DATA" data
 		DATA_BLK=true
 		;;
 	esac
 
-	if [ ! "$DATA" ]; then
-		mount -t tmpfs tmpfs data
-		DATA_BLK=true
+	if [ "$SYSTEM_BLK" ]; then
+		if [ ! "$DATA" ]; then
+			mount -t tmpfs tmpfs data
+			cd /
+			DATA_BLK=true
+		fi
+		[ "$DATA_BLK" ] && return 0
 	fi
-
-	if [ "$SYSTEM_BLK" ] && [ "$DATA_BLK" ]; then
-		return 0
-	fi
-
+cd /
 	# [ "$ROOTFOUND" = "true" ] && return 0
 
 	MOUNT=mount
@@ -301,7 +308,7 @@ check_root() {
 	fi ;;
 	esac
 
-	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$device" /mnt || return 1
+	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$device" /mnt || err "$ROOT" /mnt
 
 	# if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
 	# 	mount --move /mnt /iso
@@ -321,16 +328,18 @@ check_root() {
 
 	if [ $? != 0 ]; then
 		mountpoint -q /mnt && umount /mnt
-		return 1
+		err "$SYSTEM" android
 	fi
 
+	cd /android
 	DATA_IMG=/mnt/$SRC/$DATA
 	case "$DATA" in
 	*.img) mount_loop "$DATA_IMG" data ;;
 	data) mkdir -p "$DATA_IMG" && mount_dir "$DATA_IMG" data ;;
 	esac
 
-	[ $? = 0 ] || return 1
+	[ $? = 0 ] || err "$DATA" data
+	cd /
 }
 
 # if [ "$zfcp" ]; then
@@ -400,7 +409,7 @@ check_root() {
 # fi
 
 if [ -n "$earlymodules$MODULES" ]; then
-	modprobe -qab #${earlymodules//,/ } $MODULES
+	modprobe -qab ${earlymodules//,/ } $MODULES
 fi
 
 [ -z "$SRC" ] && [ "$BOOT_IMAGE" ] && SRC=$(dirname "$BOOT_IMAGE")
@@ -417,10 +426,10 @@ esac
 
 for dev in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
 	[ -e "$dev" ] || continue
-	ln "$dev" /dev/block
+	ln "$dev" /dev/block/
 done
 
-export mount_handler=checkroot
+export mount_handler=check_root
 
 # load hooks
 run_hookfunctions "run_hook" $EARLYHOOKS
@@ -428,8 +437,10 @@ run_hookfunctions "run_hook" $EARLYHOOKS
 # ROOTFOUND=
 # if [ "$ROOT" ]; then
 # [ "$cryptroot" ] && nlplug-findfs $cryptopts -p /sbin/mdev ${debug_init:+-d} "$ROOT"
+
 "$mount_handler" "$(find_mnt "$ROOT")" ||
 	launch_shell "ERROR: Mount failed, quitting..."
+
 # else
 # 	echo -e "Detecting Android..."
 # 	for d in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do

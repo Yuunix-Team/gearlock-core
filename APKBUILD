@@ -30,7 +30,7 @@ provider_priority=900 # highest
 build() {
 	git submodule init
 	git submodule update
-	make VERSION=$pkgver-r$pkgrel
+	make VERSION=$pkgver-r$pkgrel DEBUG=$DEBUG
 }
 
 package() {

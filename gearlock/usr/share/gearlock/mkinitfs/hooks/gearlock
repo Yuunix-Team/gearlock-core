@@ -3,17 +3,19 @@
 run_latehook() {
 	GEARLOCK=${GEARLOCK:-gearlock.img}
 
+	mkdir -p /gearlock
+
 	case "$GEARLOCK" in
 	/dev/* | UUID=* | LABEL=*)
 		GEARLOCK=$(find_mnt "$GEARLOCK")
 		GEARLOCKFS=$(fs_type "$GEARLOCK")
-		mount -t "$GEARLOCKFS" "$GEARLOCK" gearlock || return 1
+		mount -t "$GEARLOCKFS" "$GEARLOCK" /gearlock || return 1
 		;;
 	*)
 		GEARLOCK_IMG=/mnt/$SRC/$GEARLOCK
 		case "$GEARLOCK" in
-		*.img) mount -o loop,noatime "$GEARLOCK_IMG" gearlock || return 1 ;;
-		*) mount --bind "$GEARLOCK_IMG" gearlock ;;
+		*.img) mount -o loop,noatime "$GEARLOCK_IMG" /gearlock || return 1 ;;
+		*) mount --bind "$GEARLOCK_IMG" /gearlock ;;
 		esac
 		;;
 	esac
@@ -21,16 +23,17 @@ run_latehook() {
 	case "$BOOT_PART" in
 	/dev/* | UUID=* | LABEL=*)
 		BOOT_PART=$(find_mnt "$BOOT_PART")
-		mount -t "$(fs_type "$BOOT_PART")" "$BOOT_PART" gearlock/boot || return 1
+		mount -t "$(fs_type "$BOOT_PART")" "$BOOT_PART" /gearlock/boot || return 1
 		;;
-	*) mount --bind "/mnt/$SRC/$BOOT_PART" gearlock/boot ;;
+	*) mount --bind "/mnt/$SRC/$BOOT_PART" /gearlock/boot ;;
 	esac
 
-	mountpoint -q /mnt && mount --bind /mnt gearlock/gearroot
+	mountpoint -q /mnt && mount --bind /mnt /gearlock/gearroot
 
 	# recovery mode
 	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot
 
-	[ -d "/data/gearlock" ] || mkdir -p /data/gearlock
-	mount --bind /gearlock /data/gearlock
+	gl_dir=/android/data/gearlock
+	[ -d "$gl_dir" ] || mkdir -p $gl_dir
+	mount --bind /gearlock $gl_dir
 }

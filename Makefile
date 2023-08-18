@@ -1,5 +1,6 @@
 
 DESTDIR := /
+DEBUG := 0
 
 DIRLIST := usr \
 	usr/share \
@@ -51,7 +52,7 @@ FILELIST := usr/share/gearlock/mkinitfs/hooks/fsck \
 	usr/bin/populate-keys \
 	usr/bin/gshell \
 	usr/bin/resolve_device \
-	usr/bin/mkinifs \
+	usr/bin/mkinitfs \
 	usr/bin/gqueue \
 	usr/lib/gearlock/gxp/install \
 	usr/lib/gearlock/gxp/remove \
@@ -86,7 +87,7 @@ DOCSFILE := usr/share/gearlock/examples/gxp_format.gear \
 INSTALL		:= install
 
 build:
-	./build.sh
+	env DEBUG=$(DEBUG) ./build.sh
 
 install:
 	for d in $(DIRLIST); do \
