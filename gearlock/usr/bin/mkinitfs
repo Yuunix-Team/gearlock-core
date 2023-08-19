@@ -109,30 +109,27 @@ add_checked_modules() {
 	return $((!${#mods[*]}))
 }
 
+# shellcheck disable=SC2317
 add_firmware() {
 	# add a firmware file to the image.
 	#   $1: firmware path fragment
 
-	local fw fwpath
+	local fw
 	local -a fwfile
 	local -i r=1
 
-	for fw; do
-		# _d_firmware is assigned in mkinitcpio
-		# shellcheck disable=SC2154
-		for fwpath in "${_d_firmware[@]}"; do
-			# shellcheck disable=SC2153
-			if ! compgen -G "${tmpdir}${fwpath}/${fw}?(.*)" &>/dev/null; then
-				# modinfo has firmware entries with globs, read entries into an array
-				if read -r fwfile < <(compgen -G "${fwpath}/${fw}?(.*)"); then
-					map add_file "${fwfile[@]}" && r=0
-					break
-				fi
-			else
-				r=0
+	for fw in "$@"; do
+		# shellcheck disable=SC2153
+		if ! compgen -G "${tmpdir}${firmwaredir}/${fw}?(.*)" &>/dev/null; then
+			# modinfo has firmware entries with globs, read entries into an array
+			if read -r fwfile < <(compgen -G "${firmwaredir}/${fw}?(.*)"); then
+				map add_file "${fwfile[@]}" && r=0
 				break
 			fi
-		done
+		else
+			r=0
+			break
+		fi
 	done
 
 	return "$r"
@@ -278,16 +275,16 @@ add_symlink() {
 
 	# find out the link target
 	if [[ "$name" == "$target" ]]; then
-		linkobject="$(find "$target" -prune -echo '%l')"
+		[ -h "$target" ] && linkobject="$(readlink -n "$target")"
 		# use relative path if the target is a file in the same directory as the link
 		# anything more would lead to the insanity of parsing each element in its path
 		if [[ "$linkobject" != *'/'* && ! -L "${name%/*}/${linkobject}" ]]; then
 			target="$linkobject"
 		else
-			target="$(realpath -eq -- "$target")"
+			target="$(readlink -f "$target")"
 		fi
 	elif [[ -L "$target" ]]; then
-		target="$(realpath -eq -- "$target")"
+		target="$(readlink -f "$target")"
 	fi
 	if [[ -z "$target" ]]; then
 		echo "invalid symlink: $name"
@@ -316,7 +313,7 @@ add_file() {
 
 	# check if $src is a symlink
 	if [[ -L "$src" ]]; then
-		srcrealpath="$(realpath -- "$src")"
+		srcrealpath="$(readlink -f "$src")"
 		if [[ "$srcrealpath" != "$dest" ]]; then
 			# add the target file
 			add_file "$srcrealpath" "$srcrealpath" "$mode"
@@ -336,6 +333,13 @@ add_file() {
 	fi
 }
 
+add_runhook() {
+	# If hook exist, don't
+	local scope=$1 hook=$2
+	echo "${_runhooks["$scope"]}" | grep -q "$hook" || _runhooks["$scope"]+=" $hook"
+}
+
+# shellcheck disable=SC2317
 add_runscript() {
 	# Adds a runtime script to the initcpio image. The name is derived from the
 	# script which calls it as the basename of the caller.
@@ -349,7 +353,7 @@ add_runscript() {
 	fi
 
 	if [[ -L "$script" ]]; then
-		script="$(realpath -- "$script")"
+		script="$(readlink -f "$script")"
 	fi
 	add_file "$script" "/hooks/$hookname" 755
 
@@ -357,9 +361,9 @@ add_runscript() {
 
 	for fn in "${funcs[@]}"; do
 		case $fn in
-		run_earlyhook) _runhooks['early']+=" $hookname" ;;
-		run_hook) _runhooks['hooks']+=" $hookname" ;;
-		run_latehook) _runhooks['late']+=" $hookname" ;;
+		run_earlyhook) add_runhook 'early' "$hookname" ;;
+		run_hook) add_runhook 'hooks' "$hookname" ;;
+		run_latehook) add_runhook 'late' "$hookname" ;;
 		esac
 	done
 }
@@ -941,6 +945,7 @@ basedir="${basedir%/}/"
 kver=${kver:-"$(uname -r)"}
 kernel="vmlinuz-$kver"
 kerneldir="${basedir}lib/modules/$kver"
+firmwaredir="${basedir}lib/firmware"
 # fi
 
 # if [ -z "$outfile" ]; then

@@ -207,10 +207,10 @@ mount -t devpts -o gid=5,mode=0620,noexec,nosuid devpts /dev/pts
 [ "$DEBUG" ] || echo 0 0 0 0 >/proc/sys/kernel/printk
 
 # initialise /dev (first time)
-[ -d /dev/pts ] || mkdir -m 755 /dev/block
+mkdir -p -m 755 /dev/block
 echo /sbin/mdev >/proc/sys/kernel/hotplug
 mdev -s
-sleep 3
+sleep 1
 echo 0 >/proc/sys/kernel/printk
 
 # read the kernel options. we need surve things like:
@@ -234,7 +234,7 @@ run_hookfunctions() {
 	for hook in "$@"; do
 		[ -x "/hooks/$hook" ] || continue
 
-		unset "$fn"
+		unset -f "$fn"
 		. "/hooks/$hook"
 		type "$fn" >/dev/null || continue
 
@@ -248,12 +248,17 @@ check_root() {
 
 	mount_loop() { mount -o loop,noatime "$1" "$2"; }
 	mount_dir() { mount --bind "$1" "$2"; }
-	fs_type() { blkid -o value -s TYPE "$1"; }
+	fs_type() { blkol TYPE "$1"; }
 
 	err() {
-		echo "Failed to mount $1 to $2!"
+		echo "Failed to mount '$1' to '$2'!"
 		cd /
-		return 1
+		error=1
+	}
+
+	data_fallback() {
+		echo "Failed to mount '$DATA', falling back..."
+		mount -t tmpfs tmpfs /android/data
 	}
 
 	case "$SYSTEM" in
@@ -272,31 +277,32 @@ check_root() {
 		;;
 	esac
 
+	[ "$error" ] && return 1
+
 	cd /android
 	case "$DATA" in
 	/dev/* | UUID=* | LABEL=*)
 		DATA=$(find_mnt "$DATA")
 		DATAFS=$(fs_type "$DATA")
-		mount -t "$DATAFS" "$DATA" data || err "$DATA" data
+		mount -t "$DATAFS" "$DATA" data || data_fallback
 		DATA_BLK=true
 		;;
 	9p)
 		modprobe 9pnet_virtio &&
 			mount -t 9p -o trans=virtio data data -oversion=9p2000.L,posixacl,cache=loose ||
-			err "$DATA" data
+			data_fallback
 		DATA_BLK=true
 		;;
 	esac
 
+	cd /
 	if [ "$SYSTEM_BLK" ]; then
 		if [ ! "$DATA" ]; then
-			mount -t tmpfs tmpfs data
-			cd /
+			data_fallback
 			DATA_BLK=true
 		fi
 		[ "$DATA_BLK" ] && return 0
 	fi
-cd /
 	# [ "$ROOTFOUND" = "true" ] && return 0
 
 	MOUNT=mount
@@ -309,6 +315,8 @@ cd /
 	esac
 
 	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$device" /mnt || err "$ROOT" /mnt
+
+	[ "$error" ] && return 1
 
 	# if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
 	# 	mount --move /mnt /iso
@@ -326,6 +334,8 @@ cd /
 	system) mount_dir "$SYSTEM_IMG" android ;;
 	esac
 
+	[ "$error" ] && return 1
+
 	if [ $? != 0 ]; then
 		mountpoint -q /mnt && umount /mnt
 		err "$SYSTEM" android
@@ -338,7 +348,7 @@ cd /
 	data) mkdir -p "$DATA_IMG" && mount_dir "$DATA_IMG" data ;;
 	esac
 
-	[ $? = 0 ] || err "$DATA" data
+	[ $? = 0 ] || data_fallback
 	cd /
 }
 
@@ -503,7 +513,7 @@ cd /
 # post_detect
 
 # load hooks
-run_hookfunctions "run_latehook"
+run_hookfunctions "run_latehook" $LATEHOOKS
 
 if [ "$DEBUG" = "late" ]; then
 	echo -e "\nUse Alt-F1/F2/F3 to switch between virtual consoles"

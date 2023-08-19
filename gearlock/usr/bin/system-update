@@ -37,7 +37,7 @@ else
 fi
 
 OLD_SYSTEM_TYPE=$SYSTEM_TYPE
-case "$(blkid -o value -s TYPE "$NEWIMG")" in
+case "$(blkol TYPE "$NEWIMG")" in
 squashfs | erofs)
 	SYSTEM_TYPE=img
 	export SYSTEM_TYPE

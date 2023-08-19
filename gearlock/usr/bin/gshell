@@ -5,32 +5,25 @@ export PATH="/bin/:/system/bin:/system/xbin"
 SYSTEM=system.img
 DATA=data.img
 
-set_cmdline(){
-set -- $(cat /proc/cmdline)
-for arg in "$@"; do
-  case "$arg" in
-  ROOT=*) ROOT="${arg#*=}" ;;
-  SRC=*) SRC="${arg#*=}" ;;
-  SYSTEM=*) SYSTEM="${arg#*=}" ;;
-  DATA=*) DATA="${arg#*=}" ;;
-  GEARLOCK=*) GEARLOCK="${arg#*=}" ;;
-  esac
-done
-}
-
-uuidlabel() {
-  case "$1" in
-  LABEL=* | UUID=*) resolve_device "$1" ;;
-  *) echo "$1" ;;
-  esac
+set_cmdline() {
+  set -- $(cat /proc/cmdline)
+  for arg in "$@"; do
+    case "$arg" in
+    ROOT=*) ROOT="${arg#*=}" ;;
+    SRC=*) SRC="${arg#*=}" ;;
+    SYSTEM=*) SYSTEM="${arg#*=}" ;;
+    DATA=*) DATA="${arg#*=}" ;;
+    GEARLOCK=*) GEARLOCK="${arg#*=}" ;;
+    esac
+  done
 }
 
 set_cmdline
-ROOT=$(uuidlabel "$ROOT")
-BOOT_PART=$(uuidlabel "$BOOT_PART")
-SYSTEM=$(uuidlabel "$SYSTEM")
-DATA=$(uuidlabel "$DATA")
-GEARLOCK=$(uuidlabel "$GEARLOCK")
+ROOT=$(resolve_device "$ROOT")
+BOOT_PART=$(resolve_device "$BOOT_PART")
+SYSTEM=$(resolve_device "$SYSTEM")
+DATA=$(resolve_device "$DATA")
+GEARLOCK=$(resolve_device "$GEARLOCK")
 
 . "${CONFIG:="/etc/gearlock.conf"}"
 

@@ -32,7 +32,7 @@ checkimg() {
 FREESPACE=$("$GEARLIB"/checkfree)
 total_psize=$(du -sck $(sed -n 's|^system|/system/p' "$GXP_DB"/*/files) | tail -1 | cut -f 1)
 
-case "$(blkid -o value -s TYPE "$NEWIMG")" in
+case "$(blkol TYPE "$NEWIMG")" in
 ext*) checkimg && is_img=true;;
 esac
 

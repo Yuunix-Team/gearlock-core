@@ -49,6 +49,7 @@ FILELIST := usr/share/gearlock/mkinitfs/hooks/fsck \
 	usr/bin/gearload \
 	usr/bin/booted-chroot \
 	usr/bin/bootless-chroot \
+	usr/bin/blkol \
 	usr/bin/populate-keys \
 	usr/bin/gshell \
 	usr/bin/resolve_device \

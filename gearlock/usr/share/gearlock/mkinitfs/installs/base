@@ -1,6 +1,6 @@
 #!/bin/bash
 
-checkfs() { blkid -o value -s TYPE "$1"; }
+checkfs() { blkol TYPE "$1"; }
 
 install_hook() {
   add_binary busybox

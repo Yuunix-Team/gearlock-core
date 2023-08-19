@@ -6,7 +6,6 @@ exec_prefix="/usr"
 datarootdir="/usr/share"
 
 . "$pkgdatadir/grub-mkconfig_lib"
-. /bin/gshell
 
 export TEXTDOMAIN=grub
 export TEXTDOMAINDIR="${datarootdir}/locale"
@@ -37,6 +36,10 @@ for ver in $buildver; do
 done
 unset IFS
 
+case "$BOOT_PART" in
+/dev/*) BOOT_DEVICE=$BOOT_PART ;;
+*) BOOT_DEVICE=$ROOT ;;
+esac
 # loop-AES arranges things so that /dev/loop/X can be our root device, but
 # the initrds that Linux uses don't like that.
 if [ "$ROOT" ]; then
@@ -46,8 +49,8 @@ if [ "$ROOT" ]; then
 		;;
 	esac
 
-	ROOT_UUID=$(blkid -o value -s UUID "$ROOT")
-	ROOT_FS=$(blkid -o value -s TYPE "$ROOT")
+	ROOT_UUID=$(blkol UUID "$ROOT")
+	ROOT_FS=$(blkol TYPE "$ROOT")
 	# btrfs may reside on multiple devices. We cannot pass them as value of root= parameter
 	# and mounting btrfs requires user space scanning, so force UUID in this case.
 	if ! { [ -z "$ROOT_UUID" ] || [ "$GRUB_DISABLE_LINUX_UUID" = "true" ] ||
@@ -70,11 +73,6 @@ if [ "$ROOT" ]; then
 		;;
 	esac
 fi
-
-case "$BOOT_PART" in
-/dev/*) BOOT_DEVICE=$BOOT_PART ;;
-*) BOOT_DEVICE=$ROOT ;;
-esac
 
 sub_indent() { echo -e "$submenu_indentation$*"; }
 
@@ -155,7 +153,7 @@ sub_indent() { echo -e "$submenu_indentation$*"; }
 # }
 
 android_entry() {
-	local title="OS" \
+	local title=$OS \
 		kernel="$1" \
 		initrd="$2" \
 		type="$3" \
@@ -171,16 +169,17 @@ android_entry() {
 		esac ;;
 	esac
 
+	cmdline="$GRUB_CMDLINE_ANDROID_DEFAULT $GRUB_CMDLINE_ANDROID"
 	if [ "$type" != "default" ]; then
-		title="$title, with ${kernel##*-}"
+		title="$title, with ${kernel#*-}"
 		case "$type" in
 		freshboot)
 			title="$title - Freshboot"
-			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID MODE=freshboot"
+			cmdline="$cmdline MODE=freshboot"
 			;;
 		recovery)
 			title="$title - Recovery"
-			GRUB_CMDLINE_ANDROID="$GRUB_CMDLINE_ANDROID MODE=recovery"
+			cmdline="$cmdline MODE=recovery"
 			;;
 		esac
 	fi
@@ -208,7 +207,7 @@ android_entry() {
 	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
 		sed "s/^/$submenu_indentation/"
 
-	sub_indent "	linux $kernel $GRUB_CMDLINE_ANDROID_DEFAULT $GRUB_CMDLINE_ANDROID root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SRC=$system"} ${DATA:+"SRC=$DATA"}"
+	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SRC=$system"} ${DATA:+"SRC=$DATA"}"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
@@ -255,6 +254,7 @@ gen_menuentry() {
 	submenu_indentation=""
 	is_top_level=true
 	for linux in ${reverse_sorted_list}; do
+		linux=${linux#*/}
 		gettext_printf "Found linux image: %s\n" "$linux" >&2
 		basename=$(basename "$linux")
 		dirname=$(dirname "$linux")
@@ -264,17 +264,15 @@ gen_menuentry() {
 
 		initrd_early=
 		for i in ${GRUB_EARLY_INITRD_LINUX_STOCK} ${GRUB_EARLY_INITRD_LINUX_CUSTOM}; do
-			if test -e "${dirname}/${i}"; then
-				initrd_early="${initrd_early} ${i}"
-			fi
+			[ -e "${dirname}/${i}" ] && initrd_early="${initrd_early} ${i}"
 		done
 		for i in /boot/*-uc.img /boot/*-ucode.img /boot/*-microcode.img /boot/microcode.cpio /boot/early_ucode.cpio; do
-			initrd_early="${initrd_early} ${i}"
+			[ -e "${i}" ] && initrd_early="${initrd_early} ${i##*/}"
 		done
 
 		initrd_real=
 		for i in "initrd.img" "initrd-${version}.img" "initramfs-${version}.img" "initrd-${alt_version}.img" "initramfs-${alt_version}.img"; do
-			if test -e "${dirname}/${i}"; then
+			if [ -e "${dirname}/${i}" ]; then
 				initrd_real="${i}"
 				break
 			fi
@@ -324,18 +322,19 @@ gen_menuentry() {
 
 		kpath=${rel_dirname}/${basename}
 		ipath=
+		IFS=" "
 		for i in ${initrd}; do
 			ipath="${ipath} ${rel_dirname}/${i}"
 		done
+		unset IFS
+
+		[ "$device_id" ] || device_id="$(grub_get_device_id "$BOOT_DEVICE")"
 
 		if [ "$is_top_level" = "true" ] && [ "$GRUB_DISABLE_SUBMENU" != "true" ]; then
 			android_entry "$kpath" "$ipath" default "$1"
 
 			submenu_indentation="$grub_tab"
 
-			if [ -z "$device_id" ]; then
-				device_id="$(grub_get_device_id "$BOOT_DEVICE")"
-			fi
 			# TRANSLATORS: %s is replaced with an OS name
 			echo "submenu '$(gettext_printf "Advanced options for %s" "${OS}" | grub_quote)' \$menuentry_id_option '${OS// /_}${SRC:+-${SRC##*/}}-advanced-$device_id' {"
 			is_top_level=false
