@@ -116,23 +116,37 @@ add_firmware() {
 
 	local fw
 	local -a fwfile
-	local -i r=1
+	local -i r=0
+
+	[ "$*" ] || r=1
 
 	for fw in "$@"; do
 		# shellcheck disable=SC2153
-		if ! compgen -G "${tmpdir}${firmwaredir}/${fw}?(.*)" &>/dev/null; then
+		if ! ls -d "${tmpdir}${firmwaredir}/${fw}"* &>/dev/null; then
 			# modinfo has firmware entries with globs, read entries into an array
-			if read -r fwfile < <(compgen -G "${firmwaredir}/${fw}?(.*)"); then
-				map add_file "${fwfile[@]}" && r=0
-				break
+			if read -r fwfile < <(ls -d "${firmwaredir}/${fw}"*); then
+				map add_file_or_dir "${fwfile[@]}" || r=1
 			fi
 		else
 			r=0
-			break
 		fi
 	done
 
 	return "$r"
+}
+
+# shellcheck disable=SC2317
+add_file_or_dir() {
+	# Add file if src is file, or dir otherwise
+
+	local src="$1"
+
+	if [ -d "$src" ]; then
+		add_full_dir "$src"
+	else
+		add_file "$src"
+	fi
+	return $?
 }
 
 # shellcheck disable=SC2317
