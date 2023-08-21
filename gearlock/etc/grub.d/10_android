@@ -14,12 +14,8 @@ prop() { echo -n "${1#*=}"; }
 fprop() { grep -E "ro.$1" $BUILDPROP; }
 bprop() { prop "$(fprop "build.$1=")"; }
 
-# CLASS=""
 BUILDPROP=/system/build.prop
 buildver=$(fprop "([a-z]*).version" | grep -v build)
-# ANDROID_VER=$(prop "$(grep "ro.build.version.release=" "$BUILDPROP")")
-# ANDROID_VER_MAJOR=${ANDROID_VER%%.*}
-# SRC=${SRC:-"$(sed -e 's/^.*SRC=//' -e 's/ .*$//' /proc/cmdline)"}
 
 MODE=$("$GEARLIB"/sysup/checkab)
 
@@ -76,91 +72,12 @@ fi
 
 sub_indent() { echo -e "$submenu_indentation$*"; }
 
-# android_entry() {
-# 	os="$1"
-# 	version="$2"
-# 	type="$3"
-# 	args="$4"
-
-# 	if [ -z "$boot_device_id" ]; then
-# 		boot_device_id="$(grub_get_device_id "$ROOT")"
-# 	fi
-# 	if [ "$type" != simple ]; then
-# 		[ "$type" = advanced ] && type=''
-# 		title="$(gettext_printf "%s, with Linux %s%s" "${os}" "${version}" "${type:+" ($type)"}")"
-# 		if [ "$title" = "$GRUB_ACTUAL_DEFAULT" ] || [ "Previous Linux versions>$title" = "$GRUB_ACTUAL_DEFAULT" ]; then
-# 			replacement_title="Advanced options for ${OS//>/>>}>${title//>/>>}"
-# 			quoted="$(echo "$GRUB_ACTUAL_DEFAULT" | grub_quote)"
-# 			title_correction_code="${title_correction_code}if [ \"x\$default\" = '$quoted' ]; then default='$(echo "$replacement_title" | grub_quote)'; fi;"
-# 			grub_warn "$(gettext_printf "Please don't use old title \`%s' for GRUB_DEFAULT, use \`%s' (for versions before 2.00) or \`%s' (for 2.00 or later)" "$GRUB_ACTUAL_DEFAULT" "$replacement_title" "android-advanced-$boot_device_id>android-$version-$type-$boot_device_id")"
-# 		fi
-# 		echo "menuentry '$(echo "$title" | grub_quote)' ${CLASS} \$menuentry_id_option 'android-$version-$type-$boot_device_id' {" | sed "s/^/$submenu_indentation/"
-# 	else
-# 		echo "menuentry '$(echo "$os" | grub_quote)' ${CLASS} \$menuentry_id_option 'android-simple-$boot_device_id' {" | sed "s/^/$submenu_indentation/"
-# 	fi
-# 	if [ "$type" != recovery ]; then
-# 		save_default_entry | grub_add_tab
-# 	fi
-
-# 	# Use ELILO's generic "efifb" when it's known to be available.
-# 	# FIXME: We need an interface to select vesafb in case efifb can't be used.
-# 	if [ -z "$GRUB_GFXPAYLOAD_LINUX" ]; then
-# 		echo "	load_video" | sed "s/^/$submenu_indentation/"
-# 		if grep -qx "CONFIG_FB_EFI=y" "${config}" 2>/dev/null &&
-# 			grep -qx "CONFIG_VT_HW_CONSOLE_BINDING=y" "${config}" 2>/dev/null; then
-# 			echo "	set gfxpayload=keep" | sed "s/^/$submenu_indentation/"
-# 		fi
-# 	else
-# 		if [ "$GRUB_GFXPAYLOAD_LINUX" != text ]; then
-# 			echo "	load_video" | sed "s/^/$submenu_indentation/"
-# 		fi
-# 		echo "	set gfxpayload=$GRUB_GFXPAYLOAD_LINUX" | sed "s/^/$submenu_indentation/"
-# 	fi
-
-# 	echo "	insmod zstd" | sed "s/^/$submenu_indentation/"
-
-# 	if [ "$dirname" = "/" ]; then
-# 		if [ -z "$prepare_root_cache" ]; then
-# 			prepare_root_cache="$(prepare_grub_to_access_device "$ROOT" | grub_add_tab)"
-# 		fi
-# 		printf '%s\n' "$prepare_root_cache" | sed "s/^/$submenu_indentation/"
-# 	else
-# 		if [ -z "${prepare_boot_cache}" ]; then
-# 			prepare_boot_cache="$(prepare_grub_to_access_device "$GRUB_DEVICE_BOOT" | grub_add_tab)"
-# 		fi
-# 		printf '%s\n' "$prepare_boot_cache" | sed "s/^/$submenu_indentation/"
-# 	fi
-# 	message="$(gettext_printf "Loading Linux %s ..." "$version")"
-# 	sed "s/^/$submenu_indentation/" <<EOF
-# 	echo	'$(echo "$message" | grub_quote)'
-# 	linux	${rel_dirname}/${basename} root=/dev/ram0 ${args} ROOT=${android_root_device_thisversion} SRC=${SRC} ANDROID_VER=${ANDROID_VER_MAJOR}
-# EOF
-# 	if test -n "${initrd}"; then
-# 		# TRANSLATORS: ramdisk isn't identifier. Should be translated.
-# 		message="$(gettext_printf "Loading initial ramdisk ...")"
-# 		initrd_path=
-# 		for i in ${initrd}; do
-# 			initrd_path="${initrd_path} ${rel_dirname}/${i}"
-# 		done
-# 		sed "s/^/$submenu_indentation/" <<EOF
-# 	echo	'$(echo "$message" | grub_quote)'
-# 	initrd	$initrd_path
-# EOF
-# 	fi
-# 	sed "s/^/$submenu_indentation/" <<EOF
-# }
-# EOF
-# }
-
 android_entry() {
 	local title=$OS \
 		kernel="$1" \
 		initrd="$2" \
 		type="$3" \
 		system=$4
-	# src="$2"
-	# disk="$5"
-	# device_id="$6"
 
 	case "$MODE" in
 	ab) case "$system" in
@@ -207,7 +124,7 @@ android_entry() {
 	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
 		sed "s/^/$submenu_indentation/"
 
-	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SRC=$system"} ${DATA:+"SRC=$DATA"}"
+	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"}"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
