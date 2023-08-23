@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
 prefix="/usr"
@@ -124,7 +124,7 @@ android_entry() {
 	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
 		sed "s/^/$submenu_indentation/"
 
-	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"}"
+	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"} ${GEARLOCK:+"GEARLOCK=$GEARLOCK"}"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
