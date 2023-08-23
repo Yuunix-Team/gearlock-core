@@ -15,12 +15,13 @@ chroot_setup() {
 	chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
 		chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&
 		chroot_if_dir /sys/firmware/efi/efivars efivarfs "$1/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev &&
-		chroot_add_mount /dev "$1/dev" --bind &&
+		chroot_add_mount /dev "$1/dev" --rbind &&
 		chroot_add_mount /android/system "$1/system" --bind &&
 		chroot_add_mount /android/data "$1/data" --bind &&
 		chroot_add_mount /android/vendor "$1/vendor" --bind &&
 		chroot_if_dir /android/apex /android/system/apex "$1/apex" --bind &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid
+		CHROOT_ACTIVE_MOUNTS="$1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
 chroot_setup "$CHROOTDIR" || die "Failed to setup chroot $CHROOTDIR"

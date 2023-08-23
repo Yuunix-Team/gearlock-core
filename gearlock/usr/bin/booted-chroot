@@ -26,6 +26,7 @@ chroot_setup() {
 		chroot_if_dir /linkerconfig /linkerconfig "$1/linkerconfig" --bind &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
 		chroot_add_mount / "$1/android" --bind
+		CHROOT_ACTIVE_MOUNTS="$1/dev/binderfs $1/dev/memcfg $1/dev/cpuset $1/dev/cpuctl $1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
 [ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
