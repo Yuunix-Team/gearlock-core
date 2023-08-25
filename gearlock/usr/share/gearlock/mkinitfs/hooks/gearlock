@@ -39,6 +39,9 @@ run_latehook() {
 
 	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot
 
+	[ -e /gearlock/var/gearlock/initialized ] ||
+		/gearlock/bin/bootless-chroot /usr/share/gearlock/first-interation.sh
+
 	mkdir -p /android/data/gearlock
 	mount --move /gearlock /android/data/gearlock
 
