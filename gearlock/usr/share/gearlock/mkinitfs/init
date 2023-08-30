@@ -466,18 +466,19 @@ cd /android
 
 ln -s "/mnt/$SRC" /src
 ln -s android/system /
-ln -s ../system/lib/firmware ../system/lib/modules /lib
+mount --bind /android/system/lib/firmware /lib/firmware
+mount --bind /android/system/lib/modules /lib/modules
 
 # if test 0$ANDROID_VER -ge 10; then
-apex_runtime=/apex/com.android.runtime
-apex_link=system$apex_runtime
+apex_runtime=apex/com.android.runtime
+apex_link=system/$apex_runtime
 
 case "$(ls /$apex_link* | head -1)" in
 *.debug) apex_link=apex_link.debug ;;
 *.release) apex_link=apex_link.release ;;
 esac
 
-ln -s ../android/$apex_link $apex_runtime
+ln -s ../android/$apex_link /$apex_runtime
 
 cd /
 # fi
