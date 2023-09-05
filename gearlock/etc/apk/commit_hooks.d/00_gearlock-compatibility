@@ -1,0 +1,57 @@
+#!/bin/sh
+
+export PATH=/bin:/sbin:/usr/local/bin:/usr/bin:/usr/sbin
+
+FAKEDB=/var/gearlock/alpine
+
+mkdir -p $FAKEDB
+
+if [ ! -d "$FAKEDB/lib" ]; then
+  mkdir -p $FAKEDB/lib
+  for so in /lib/* /usr/lib/*; do
+    [ -e "$so" ] || continue
+    so_bn=$(basename "$so")
+    [ -e "$FAKEDB/lib/$so_bn" ] && continue
+    ln -s "/usr/lib/$so_bn" $FAKEDB/lib/
+  done
+fi
+
+case "$1" in
+pre-commit)
+  unlink /bin
+  unlink /sbin
+  unlink /usr/sbin
+  mkdir -p /bin /sbin /usr/sbin
+
+  unlink /lib
+  mv $FAKEDB/lib /lib
+  ;;
+post-commit)
+  for exe in /bin/* /sbin/* /usr/sbin/*; do
+    [ -e "$exe" ] || continue
+    exe_bn=$(basename "$exe")
+    if [ -h "/usr/bin/$exe_bn" ] || [ ! -e "/usr/bin/$exe_bn" ]; then
+      mv -rf "$exe" /usr/bin/ || true
+    fi
+  done
+
+  rm -rf /bin /sbin /usr/sbin
+  ln -s usr/bin /bin
+  ln -s usr/bin /sbin
+  ln -s bin /usr/sbin
+
+  for so in /lib/*; do
+    [ -e "$so" ] || continue
+    so_bn=$(basename "$so")
+    if [ -h "/usr/lib/$so_bn" ] || [ ! -e "/usr/lib/$so_bn" ]; then
+      mv -f "$so" /usr/lib/
+      ln -s "/usr/lib/$so_bn" /lib/
+    fi
+  done
+
+  mv /lib $FAKEDB/lib
+  ln -s usr/lib /lib
+
+  sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
+  ;;
+esac

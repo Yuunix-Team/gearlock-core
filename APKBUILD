@@ -11,6 +11,7 @@ license="GPL-2.0-only"
 # currently we do not ship any testsuite
 options="!check"
 makedepends_host="bash busybox git"
+[ "${DEBUG#0}" ] || makedepends_host="$makedepends_host shfmt"
 makedepends="$makedepends_host"
 depends="
 	busybox-binsh
@@ -18,7 +19,6 @@ depends="
 	bash
 	gnupg
 	kmod
-	lddtree>=1.25
 	mdev-conf
 	"
 # subpackages="$pkgname-doc"

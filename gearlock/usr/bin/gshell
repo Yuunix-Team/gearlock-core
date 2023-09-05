@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export PATH="/bin/:/system/bin:/system/xbin"
+export PATH="/usr/bin/:/usr/local/bin:/system/bin:/system/xbin"
 
 SYSTEM=system.img
 DATA=data.img
@@ -18,12 +18,25 @@ set_cmdline() {
   done
 }
 
+parse_devblock() {
+  device=$1
+  case "$1" in
+  /dev/[hmnsv][dmrv][0-9a-z]* | \
+    /dev/xvd[0-9a-z]* | \
+    /dev/nvme[0-9]n[0-9]p[0-9a-z]* | \
+    /dev/mmcblk[0-9]p[0-9a-z]*)
+    device=/dev/block/${1#"/dev/"}
+    ;;
+  esac
+  echo -n "$(resolve_device "$device")"
+}
+
 set_cmdline
-ROOT=$(resolve_device "$ROOT")
-BOOT_PART=$(resolve_device "$BOOT_PART")
-SYSTEM=$(resolve_device "$SYSTEM")
-DATA=$(resolve_device "$DATA")
-GEARLOCK=$(resolve_device "$GEARLOCK")
+ROOT=$(parse_devblock "$ROOT")
+BOOT_PART=$(parse_devblock "$BOOT_PART")
+SYSTEM=$(parse_devblock "$SYSTEM")
+DATA=$(parse_devblock "$DATA")
+GEARLOCK=$(parse_devblock "$GEARLOCK")
 
 . "${CONFIG:="/etc/gearlock.conf"}"
 

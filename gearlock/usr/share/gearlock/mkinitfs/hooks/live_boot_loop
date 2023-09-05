@@ -1,10 +1,42 @@
 #!/bin/sh
 
 live_loop_mount_handler() {
-	# 
-	live_mount_handler "$1"
+	# in live mode, SRC, SYSTEM, DATA, GEARLOCK are ignored
+	export SRC='' SYSTEM=system.img DATA='' GEARLOCK=gearlock.img
+
+	local remount_limit=0 disktmp
+	while [ ! "$ISO_DEV" ] && [ "$remount_limit" -le 5 ]; do
+		remount_limit=$((remount_limit + 1))
+		for dev in /dev/[hmnsv][dmrv][0-9a-z]* /dev/xvd[0-9a-z]* /dev/nvme[0-9]n[0-9]p[0-9a-z]* /dev/mmcblk[0-9]p[0-9a-z]*; do
+			[ -e "$dev" ] || continue
+			sleep 1
+			disktmp="$(mktemp)"
+			rm -f "$disktmp"
+			mkdir -p "$disktmp"
+			timeout 10 mount -t auto "$dev" "$disktmp"
+			[ -d "$disktmp/$ISO" ] &&
+				ISO_DEV=$dev
+			umount -lf "$disktmp"
+			[ "$ISO_DEV" ] && break
+		done
+	done
+
+	[ "$ISO_DEV" ] || launch_shell "Device containing $ISO was not found!"
+
+	mkdir -p /iso
+	MOUNT=mount
+	case $(fs_type "$1") in
+	ntfs) if modinfo ntfs3 >/dev/null; then
+		FS=ntfs3
+	else
+		MOUNT=mount.ntfs-3g
+	fi ;;
+	esac
+
+	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$ISO_DEV" /iso
+	check_root "/iso/$ISO"
 }
 
 run_hook() {
-	[ "$loop_img" ] && export mount_handler="live_loop_mount_handler"
+	[ "$ISO" ] && export mount_handler="live_loop_mount_handler"
 }
