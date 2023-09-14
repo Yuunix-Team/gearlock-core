@@ -27,18 +27,18 @@ SYSTEM=
 case "$MODE" in
 ab)
   if [ "$OLD_MODE" = ab ]; then
-    to() { mv -r "$SRCDIR/system_$1$COMP" "$SRCDIR/system_$2$COMP"; }
+    to() { mv -f "$SRCDIR/system_$1$COMP" "$SRCDIR/system_$2$COMP"; }
     if echo "$SYSTEM" | grep -qE '_a(\.(img|[se]fs))?$'; then
       to a b
     else
       to b a
     fi
   else
-    mv -r "$SRCDIR/system$COMP" "$SRCDIR/system_a$COMP"
+    mv -f "$SRCDIR/system$COMP" "$SRCDIR/system_a$COMP"
   fi
   ;;
 aonly)
-  mv -r "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
+  mv -f "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
     rm -rf "$SRCDIR"/system_*
   ;;
 esac

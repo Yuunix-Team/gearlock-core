@@ -31,7 +31,7 @@ post-commit)
     [ -e "$exe" ] || continue
     exe_bn=$(basename "$exe")
     if [ -h "/usr/bin/$exe_bn" ] || [ ! -e "/usr/bin/$exe_bn" ]; then
-      mv -rf "$exe" /usr/bin/ || true
+      mv -f "$exe" /usr/bin/ || true
     fi
   done
 

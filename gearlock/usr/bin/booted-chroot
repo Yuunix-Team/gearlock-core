@@ -18,15 +18,15 @@ chroot_setup() {
 	chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
 		chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&
 		chroot_if_dir /sys/firmware/efi/efivars efivarfs "$1/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev &&
-		chroot_add_mount /dev "$1/dev" --bind &&
-		chroot_add_mount /system "$1/system" --bind &&
+		chroot_add_mount /dev "$1/dev" --rbind &&
+		chroot_add_mount /system "$1/system" --rbind &&
 		chroot_add_mount /data "$1/data" --bind &&
-		chroot_add_mount /vendor "$1/vendor" --bind &&
-		chroot_if_dir /apex /system/apex "$1/apex" --bind &&
+		chroot_add_mount /vendor "$1/vendor" --rbind &&
+		chroot_if_dir /apex /system/apex "$1/apex" --rbind &&
 		chroot_if_dir /linkerconfig /linkerconfig "$1/linkerconfig" --bind &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
 		chroot_add_mount / "$1/android" --bind
-		CHROOT_ACTIVE_MOUNTS="$1/dev/binderfs $1/dev/memcfg $1/dev/cpuset $1/dev/cpuctl $1/dev/pts $CHROOT_ACTIVE_MOUNTS"
+		CHROOT_ACTIVE_MOUNTS="$1/dev/binderfs $1/dev/memcg $1/dev/cpuset $1/dev/cpuctl $1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
 [ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"

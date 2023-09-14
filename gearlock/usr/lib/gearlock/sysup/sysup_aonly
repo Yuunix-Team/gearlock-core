@@ -31,7 +31,7 @@ case "$SYSTEM" in
   checkspace
 
   if [ "$BOOTED" ]; then
-    mv -r "$SYSTEM" "$SYSTEM-pending_remove"
+    mv -f "$SYSTEM" "$SYSTEM-pending_remove"
   else
     rm -rf "$SYSTEM"
   fi

@@ -253,9 +253,8 @@ check_root() {
 	mount_dir() { mount --bind "$1" "$2"; }
 
 	err() {
-		echo "Failed to mount '$1' to '$2'!"
 		cd /
-		error=1
+		launch_shell "Failed to mount '$1' to '$2'!"
 	}
 
 	data_fallback() {
@@ -278,8 +277,6 @@ check_root() {
 		SYSTEM_BLK=true
 		;;
 	esac
-
-	[ "$error" ] && return 1
 
 	cd /android
 	case "$DATA" in
@@ -318,8 +315,6 @@ check_root() {
 
 	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$device" /mnt || err "$ROOT" /mnt
 
-	[ "$error" ] && return 1
-
 	# if [ "$ISO" ] && [ -e "/mnt/$ISO" ]; then
 	# 	mount --move /mnt /iso
 	# 	mkdir /mnt/iso
@@ -335,8 +330,6 @@ check_root() {
 	*.img) mount_loop "$SYSTEM_IMG" android ;;
 	system) mount_dir "$SYSTEM_IMG" android ;;
 	esac
-
-	[ "$error" ] && return 1
 
 	if [ $? != 0 ]; then
 		mountpoint -q /mnt && umount /mnt
@@ -476,8 +469,8 @@ apex_runtime=apex/com.android.runtime
 apex_link=system/$apex_runtime
 
 case "$(ls /$apex_link* | head -1)" in
-*.debug) apex_link=apex_link.debug ;;
-*.release) apex_link=apex_link.release ;;
+*.debug) apex_link=${apex_link}.debug ;;
+*.release) apex_link=${apex_link}.release ;;
 esac
 
 ln -s ../android/$apex_link /$apex_runtime

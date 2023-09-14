@@ -1,5 +1,7 @@
 #!/bin/bash
 
+### DEPRECATED
+
 config=/etc/gxp.conf
 
 usage() {

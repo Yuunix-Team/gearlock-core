@@ -3,37 +3,43 @@
 NEWIMG=$1
 
 loop_mount() {
-  local disktmp
-  disktmp="$(mktemp)"
-  rm -f "$disktmp"
-  mkdir -p "$disktmp" || true
-  mount -o ro${2:+,$2} -t "${3:-auto}" "$1" "$disktmp" 2>/dev/null
-  UNMOUNT_LIST="$disktmp $UNMOUNT_LIST"
-  echo "$disktmp"
+	local disktmp
+	disktmp="$(mktemp)"
+	rm -f "$disktmp"
+	mkdir -p "$disktmp" || true
+	mount -o ro${2:+,$2} -t "${3:-auto}" "$1" "$disktmp" 2>/dev/null
+	UNMOUNT_LIST="$disktmp $UNMOUNT_LIST"
+	echo "$disktmp"
 }
 
 patch_img() {
-  local line
-  while read -r line; do
-    [ -d "/$line" ] && mkdir -p "$NEWIMG/${line#system/}" && continue
-    cp "/$line" "$NEWIMG/${line#system/}"
-  done <<<"$(grep -hE "^system" "$GXP_DB"/*/files)"
+	local line
+
+	# GXP package patching, deprecated
+	while read -r line; do
+		[ -d "/$line" ] && mkdir -p "$NEWIMG/${line#system/}" && continue
+		cp "/$line" "$NEWIMG/${line#system/}"
+	done <<<"$(grep -hE "^system" "$GXP_DB"/*/files)"
+
+	# APK package patching
+
+	# addon.d pending to be added
 }
 
 fsize() { du -sk "$1" | cut -f 1; }
 
 checkimg() {
-  newsize=$(($(fsize "$NEWIMG") + total_psize))
-  ((FREESPACE < newsize)) && exit 1
-  resize2fs "$NEWIMG" ${newsize}K
-  NEWIMG=$(loop_mount "$NEWIMG")
+	newsize=$(($(fsize "$NEWIMG") + total_psize))
+	((FREESPACE < newsize)) && exit 1
+	resize2fs "$NEWIMG" ${newsize}K
+	NEWIMG=$(loop_mount "$NEWIMG")
 }
 
 FREESPACE=$("$GEARLIB"/checkfree)
 total_psize=$(du -sck $(sed -n 's|^system|/system/p' "$GXP_DB"/*/files) | tail -1 | cut -f 1)
 
 case "$(blkol TYPE "$NEWIMG")" in
-ext*) checkimg && is_img=true;;
+ext*) checkimg && is_img=true ;;
 esac
 
 patch_img
