@@ -1,0 +1,3 @@
+#!/bin/bash
+
+# This script installs all in rootfs/ and triggers all in triggers/
