@@ -12,10 +12,7 @@ startdir=$PWD
 _hooks=()
 declare -A _runhooks _addedmodules _modpaths _autodetect_cache
 
-die() {
-	error "$@"
-	cleanup 1
-}
+die() { echo "==> ERROR: $*" >&2 && exit 1; }
 
 map() {
 	local r=0

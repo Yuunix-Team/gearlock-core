@@ -219,13 +219,13 @@ set -- $(cat /proc/cmdline)
 
 . /config
 
-[ "$DEBUG" = "pre" ] && launch_shell "Pre-boot debug requested, launching interactive shell..."
-
 launch_shell() {
 	echo -e "\n$1"
 	# modprobe -a atkbd hid-apple
 	sh 2>&1
 }
+
+[ "$DEBUG" = "pre" ] && launch_shell "Pre-boot debug requested, launching interactive shell..."
 
 run_hookfunctions() {
 	local hook fn="$1"
