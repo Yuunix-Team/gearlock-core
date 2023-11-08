@@ -1,0 +1,46 @@
+#!/bin/bash
+
+quit() {
+	rm -rf /queue.glist
+	exit "$1"
+}
+
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+run_task() {
+	qname=$(sed -r "s/^'([a-z]+)'/\1/g" <<<"$1")
+	echo "Running task $*"
+	shift
+	case "$qname" in
+	fsresize)
+		DISK=$1
+		NEWSIZE=$2
+		case "$(blkol TYPE "$DISK")" in
+		ext[234]) resize2fs "$DISK" "$NEWSIZE" ;;
+		xfs)
+			# echo "item = 2 or item = 3"
+			;;
+		fat)
+			# echo "item = 2 or item = 3"
+			;;
+		f2fs)
+			# echo "item = 2 or item = 3"
+			;;
+		*)
+			# echo "default (none of above)"
+			;;
+		esac
+		[ $? = 0 ] || die "Failed to resize filesystem at $DISK"
+		;;
+	runcmd)
+		timeout 300 bash -c "eval $*" || die "Failed to run command $*"
+		;;
+	*) die "task $cmd is not supported" ;;
+	esac
+}
+
+while IFS= read -r cmd; do
+	[ "$cmd" ] && run_task $cmd
+done </queue.glist
+
+quit 0
