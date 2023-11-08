@@ -8,18 +8,7 @@ export LD_LIBRARY_PATH="/data/gearlock/lib/:${LD_LIBRARY_PATH:-/system/lib:/lib}
 
 BOOTED=$(getprop sys.boot_completed)
 
-osArch="$(uname -m)"
-case "$osArch" in
-i?86 | x86*) processor="x86" ;;
-arm*) processor="arm" ;;
-esac
-
-if grep -owq 'lm' /proc/cpuinfo; then
-	case "$processor" in
-	x86) cpuArch="x86_64" ;;
-	arm*) cpuArch="aarch64" ;;
-	esac
-fi
+cpuArch="$(busybox arch)"
 
 if command -v su; then
 	if grep -q ksu /system/lib/modules/"$(uname -r)"/modules.builtin; then

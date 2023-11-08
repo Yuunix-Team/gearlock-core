@@ -5,7 +5,7 @@ export BOOTED
 
 CHROOTDIR=${CHROOTDIR:-"/data/gearlock"}
 
-die() { echo "==> ERROR: $*" >&2 && exit 1; }
+die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
 chroot_add_mount() { mount $@ && CHROOT_ACTIVE_MOUNTS="$2 $CHROOT_ACTIVE_MOUNTS"; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }

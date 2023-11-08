@@ -38,13 +38,15 @@ check_space() {
 		;;
 	esac
 
-	FREESPACE=$("$GEARLIB"/checkfree)
+	FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
 
 	((NEEDED_SPACE > FREESPACE)) &&
 		exit 3
 }
 
 check_space
+
+# TODO: extract and update in RAM if there's enough free space (if more than Ngb of ram)
 
 if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
 	TMPDIR=$SRCDIR/tmp

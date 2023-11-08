@@ -5,7 +5,7 @@ SIG=
 SYSIMAGE=
 UNMOUNT_LIST=
 
-die() { echo "==> ERROR: $*" >&2 && exit "${2:-1}"; }
+die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
 [ "$4" ] && die "Invalid arguments '$*'" 2
 

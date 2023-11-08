@@ -7,7 +7,7 @@ _ver=${pkgver%_git*}_compat7.3.15
 pkgrel=1
 pkgdesc="GearLock recovery project for Android on PC"
 url="https://github.com/Yuunix-Team/gearlock-core.git"
-arch=('anny')
+arch=('any')
 license="GPL-2.0-only"
 # currently we do not ship any testsuite
 # options="!check"
@@ -25,7 +25,7 @@ makedepends="$makedepends_host"
 build() {
 	git submodule init
 	git submodule update
-	make VERSION=$pkgver-r$pkgrel DEBUG=$DEBUG
+	make VERSION=$pkgver-$pkgrel DEBUG=$DEBUG
 }
 
 package() {

@@ -53,7 +53,7 @@ if [ "$remove_list" ]; then
 	remove $remove_list
 fi
 
-freespace=$("$GEARLIB"/checkfree)
+freespace=$("$GEARLIB"/checkfree | awk '{print $1}')
 
 ((freespace < instsize)) && echo "Not enough space" && exit 1
 

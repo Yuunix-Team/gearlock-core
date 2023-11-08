@@ -39,7 +39,7 @@ checkimg() {
 	NEWIMG=$(loop_mount "$NEWIMG")
 }
 
-FREESPACE=$("$GEARLIB"/checkfree)
+FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
 total_psize=$(du -sck $(sed -n 's|^system|/system/p' "$GXP_DB"/*/files) | tail -1 | cut -f 1)
 
 case "$(blkol TYPE "$NEWIMG")" in

@@ -25,7 +25,7 @@ maintainer='Shadichy <shadichy.dev@gmail.com>'
 
 git submodule init
 git submodule update
-make VERSION=$pkgver-r$revision DEBUG=$DEBUG
+make VERSION=$pkgver-$revision DEBUG=$DEBUG
 
 do_install() {
 	make install DESTDIR="$DESTDIR"

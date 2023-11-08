@@ -3,7 +3,7 @@
 OLD_MODE=$("$GEARLIB"/sysup/checkab)
 MODE=
 
-die() { echo "==> ERROR: $*" >&2 && exit 1; }
+die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
 case "$SYSTEM" in
 /dev/*) die "This script does not work on partition based system" ;;

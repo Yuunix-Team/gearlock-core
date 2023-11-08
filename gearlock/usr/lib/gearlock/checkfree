@@ -1,9 +1,19 @@
 #!/bin/bash
 
-if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
-  TARGET=$SRCDIR
-else
-  TARGET=/data/local/tmp
-fi
+storage_free() {
+  if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
+    TARGET=$SRCDIR
+  else
+    TARGET=/data/local/tmp
+  fi
+  df -k --sync --output=avail "$TARGET"
+}
 
-df -k --sync --output=avail "$TARGET"
+ram_free() {
+  # temporarily free up ram
+  sync
+  echo 1 > /proc/sys/vm/drop_caches
+  free -k | grep Mem | awk '{print $3}'
+}
+
+echo "$(storage_free) $(ram_free)"

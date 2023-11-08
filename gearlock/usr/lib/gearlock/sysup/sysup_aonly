@@ -1,6 +1,6 @@
 #!/bin/bash
 
-die() { echo "$*" &>&2 & exit 1; }
+die() { echo "$*" >&2 & exit 1; }
 
 NEWIMG=$1
 NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
@@ -27,7 +27,7 @@ case "$SYSTEM" in
   [ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
   SYSTEM=$SRCDIR/system$COMP
-  FREESPACE=$("$GEARLIB"/checkfree)
+  FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
   checkspace
 
   if [ "$BOOTED" ]; then
