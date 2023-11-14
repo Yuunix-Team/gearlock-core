@@ -18,14 +18,6 @@ mount_gearlock() {
 		;;
 	esac
 
-	case "$BOOT_PART" in
-	/dev/* | UUID=* | LABEL=*)
-		BOOT_PART=$(find_mnt "$BOOT_PART")
-		mount -t "$(fs_type "$BOOT_PART")" "$BOOT_PART" "$1"/boot || return 1
-		;;
-	*) mount --bind "$2/$SRC/$BOOT_PART" "$1"/boot ;;
-	esac
-
 	mountpoint -q "$2" && mount --bind "$2" "$1"/gearroot
 
 	mount --bind "$1/lib/modules" /android/system/lib/modules

@@ -62,7 +62,7 @@ fi
 ((NEEDED_SPACE > FREESPACE)) &&
 	exit 3
 
-# TODO: extract in RAM
+# TODO: check for module.prop (magisk module format) & system.img (if it's a rom)
 
 "$GEARLIB"/extract "$FILE" "$TMPDIR"
 

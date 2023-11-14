@@ -810,8 +810,7 @@ initfs_cpscripts() {
 		printf '%s="%s"\n' \
 			'EARLYHOOKS' "${_runhooks['early']# }" \
 			'HOOKS' "${_runhooks['hooks']# }" \
-			'LATEHOOKS' "${_runhooks['late']# }" \
-			'BOOT_PART' "$BOOT_PART"
+			'LATEHOOKS' "${_runhooks['late']# }"
 	} >"$tmpdir/config"
 
 	install_modules "${!_modpaths[@]}"
