@@ -4,6 +4,7 @@ checkfs() { blkol TYPE "$1"; }
 
 install_hook() {
   add_binary busybox
+  add_binary blkol
   add_file ""$GEARDATA"/mkinitfs/init" "/init"
 
   add_full_dir /lib/mdev

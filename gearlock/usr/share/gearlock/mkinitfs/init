@@ -243,7 +243,6 @@ run_hookfunctions() {
 	done
 }
 
-blkol() { blkid "$2" | grep -ioE "$1=\"[a-z0-9-]+\"" | awk -F'"' '{print $2}'; }
 fs_type() { blkol TYPE "$1"; }
 
 check_root() {

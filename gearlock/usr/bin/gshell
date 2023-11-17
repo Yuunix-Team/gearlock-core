@@ -2,6 +2,13 @@
 
 export PATH="/usr/bin/:/usr/local/bin:/system/bin:/system/xbin"
 
+# source config
+. "${CONFIG:="/etc/gearlock.conf"}"
+
+# mount all in fstab
+mount -a
+
+# default values
 SYSTEM=system.img
 DATA=data.img
 
@@ -31,14 +38,13 @@ parse_devblock() {
   echo -n "$(resolve_device "$device")"
 }
 
+# get values from cmdline
 set_cmdline
 ROOT=$(parse_devblock "$ROOT")
 BOOT_PART=$(parse_devblock "$BOOT_PART")
 SYSTEM=$(parse_devblock "$SYSTEM")
 DATA=$(parse_devblock "$DATA")
 GEARLOCK=$(parse_devblock "$GEARLOCK")
-
-. "${CONFIG:="/etc/gearlock.conf"}"
 
 export ROOT \
   BOOT_PART \

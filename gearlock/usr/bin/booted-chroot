@@ -3,14 +3,13 @@
 BOOTED=$(getprop sys.boot_completed)
 export BOOTED
 
-CHROOTDIR=${CHROOTDIR:-"/data/gearlock"}
+: "${CHROOTDIR:="/data/gearlock"}"
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
-add_umount() { CHROOT_ACTIVE_MOUNTS="$(mount | grep "on $1 " | sed -r 's|^[a-z0-9/-]+ on ([a-z0-9/-]+) .*$|\1|gi' | tac | xargs) $CHROOT_ACTIVE_MOUNTS"; }
-chroot_add_mount() { mount $@ && add_umount "$2"; }
-chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
-chroot_teardown() { [ "$CHROOT_ACTIVE_MOUNTS" ] && umount $CHROOT_ACTIVE_MOUNTS && unset CHROOT_ACTIVE_MOUNTS; }
+chroot_add_mount() { mount $@; }
+chroot_if_dir() { [ -d "$1" ] && chroot_add_mount $@ || true; }
+chroot_teardown() { UMOUNTS=$(mount | grep "on $CHROOTDIR" | sed -r 's|^[a-z0-9/-]+ on ([a-z0-9/-]+) .*$|\1|gi' | tac | xargs) && [ "$UMOUNTS" ] && umount $UMOUNTS; }
 
 chroot_setup() {
 	CHROOT_ACTIVE_MOUNTS=""
@@ -23,11 +22,10 @@ chroot_setup() {
 		chroot_add_mount /system "$1/system" --rbind &&
 		chroot_add_mount /data "$1/data" --bind &&
 		chroot_add_mount /vendor "$1/vendor" --rbind &&
-		chroot_if_dir /apex /apex "$1/apex" --rbind &&
-		chroot_if_dir /linkerconfig /linkerconfig "$1/linkerconfig" --bind &&
+		chroot_if_dir /apex "$1/apex" --rbind &&
+		chroot_if_dir /linkerconfig "$1/linkerconfig" --bind &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
 		chroot_add_mount / "$1/android" --bind
-		CHROOT_ACTIVE_MOUNTS="$1/dev/binderfs $1/dev/memcg $1/dev/cpuset $1/dev/cpuctl $1/dev/pts $CHROOT_ACTIVE_MOUNTS"
 }
 
 [ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
