@@ -9,7 +9,7 @@ die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
 chroot_add_mount() { mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
-chroot_teardown() { UMOUNTS=$(mount | grep "on $CHROOTDIR" | sed -r 's|^[a-z0-9/-]+ on ([a-z0-9/-]+) .*$|\1|gi' | tac | xargs) && [ "$UMOUNTS" ] && umount $UMOUNTS; }
+chroot_teardown() { UMOUNTS=$(mount | grep "on $CHROOTDIR" | awk -F ' on ' '{print $2}' | awk '{print $1}' | tac | xargs) && [ "$UMOUNTS" ] && umount $UMOUNTS; }
 
 chroot_setup() {
 	trap 'chroot_teardown' EXIT

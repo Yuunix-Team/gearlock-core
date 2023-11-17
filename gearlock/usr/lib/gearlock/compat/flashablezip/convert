@@ -27,7 +27,7 @@ if [ ! "$TYPE" ]; then
 		command -v $cmd || continue
 		case "$cmd" in
 		pacman) : "PKGBUILD" ;;
-		xbps) : "XBPS" ;;
+		xbps-src) : "XBPS" ;;
 		dpkg) : "DEBIAN" ;;
 		apk) : "APKBUILD" ;;
 		esac
@@ -70,8 +70,29 @@ content=$(unzip -l "$FILE")
 if echo "$content" | grep -q module.prop; then
 	"$GEARLIB"/extract "$FILE" "$TMPDIR" module.prop
 	eval "$(sed -r "s/^([a-zA-Z0-9_]+[a-zA-Z0-9_-]*=)(.*)$/\1\"\2\"/g" "$TMPDIR/module.prop" | tr '\n' ' ')"
-elif echo "$content" | grep -Eq "system(|_[ab]).img"; then
+elif echo "$content" | grep -Eq "system(_[ab])?.img"; then
 	die "'$FILE' is a ROM and not supported" 2
+else
+	echo "WARNING: '$FILE' is not a ksu/magisk package. Parsing from file name..."
+	eval "$(echo $FILE | awk -F '-' '{
+name=$1
+for(i=2;i<=NF;i++) {
+	switch ($i) {
+	case /[0-9]+\..*/ :
+		ver=$i
+		break
+	case /[0-9]{8}/ :
+		date=$i
+		if ($ver !) {ver=$i}
+		break
+	case /(x86_?|arm|aarch)(32|64|eabi|hf)?/ :
+		arch=$i
+		break
+	}
+}
+print "id=\""$name"\" version=\""$ver"\" arch=\""$arch"\" desc=\""$name" - build date: "$date"\"" 
+}')"
+
 fi
 
 "$GEARLIB"/extract "$FILE" "$TMPDIR"
