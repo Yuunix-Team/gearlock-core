@@ -1,10 +1,40 @@
 #!/bin/bash
 
+die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
+
 usage() {
 	echo
 }
 
-die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
+filename_parse() {
+	eval "$(echo "$1" | awk -F '-' '{
+name=$1
+for(i=2;i<=NF;i++) {
+	switch ($i) {
+	case /^[0-9]+\..*/ :
+		ver=$i
+		break
+	case /^[0-9]{8}/ :
+		date=$i
+		if (length(ver)==0) {ver=$i}
+		break
+	case /^(x86_?|arm|aarch)(32|64|eabi|hf)?/ :
+		arch=$i
+		break
+	}
+}
+print "id=\""name"\" version=\""ver"\" revison=\""date"\" arch=\""arch"\" description=\""name" - build date: "date"\"" 
+}')" || return 2
+	for i in "$id" "$version" "$arch"; do
+		[ "$i" ] || return 2
+	done
+	case "$arch" in
+	arm64) arch=aarch64 ;;
+	armeabi | armhf) arch=arm ;;
+	x86_32) arch=x86 ;;
+	esac
+	[ "$arch" = "$ARCH" ] || return 1
+}
 
 while getopts "A:adpvh" opt; do
 	case "$opt" in
@@ -64,41 +94,66 @@ fi
 ((NEEDED_SPACE > FREESPACE)) &&
 	exit 3
 
-# TODO: check for module.prop (magisk module format) & system.img (if it's a rom)
+# check for module.prop (magisk module format) & system.img (if it's a rom)
 
+unset id version revision description arch author url
 content=$(unzip -l "$FILE")
 if echo "$content" | grep -q module.prop; then
+	filename_parse "${FILE%.*}" ||
+		echo "WARNING: Architecture may not match target"
+	arch=$ARCH
+
 	"$GEARLIB"/extract "$FILE" "$TMPDIR" module.prop
 	eval "$(sed -r "s/^([a-zA-Z0-9_]+[a-zA-Z0-9_-]*=)(.*)$/\1\"\2\"/g" "$TMPDIR/module.prop" | tr '\n' ' ')"
+
+	revision=$versionInt
+	case "$version" in [a-zA-Z]+) version=$versionInt ;; esac
+
 elif echo "$content" | grep -Eq "system(_[ab])?.img"; then
 	die "'$FILE' is a ROM and not supported" 2
 else
 	echo "WARNING: '$FILE' is not a ksu/magisk package. Parsing from file name..."
-	eval "$(echo $FILE | awk -F '-' '{
-name=$1
-for(i=2;i<=NF;i++) {
-	switch ($i) {
-	case /[0-9]+\..*/ :
-		ver=$i
-		break
-	case /[0-9]{8}/ :
-		date=$i
-		if ($ver !) {ver=$i}
-		break
-	case /(x86_?|arm|aarch)(32|64|eabi|hf)?/ :
-		arch=$i
-		break
-	}
-}
-print "id=\""$name"\" version=\""$ver"\" arch=\""$arch"\" desc=\""$name" - build date: "$date"\"" 
-}')"
+	filename_parse "${FILE%.*}"
+	case "$?" in
+	1) die "Architecture does not match target, canceling..." 3 ;;
+	2) die "Parse filename failed, quitting..." 3 ;;
+	esac
 
 fi
 
-"$GEARLIB"/extract "$FILE" "$TMPDIR"
+PKG=$TMPDIR/$GEARDATA/extension/$id
+mkdir -p "$PKG"
+"$GEARLIB"/extract "$FILE" "$PKG"
 
-# TODO: simulate a magisk/ksu environment to install flashable zips
+# TODO: gen makefile & build file
 
-mkdir -p "$TMPDIR/$GEARDATA/extension/"
+CURRENT_DIR=$(pwd)
+cd "$TMPDIR"
 
-# first extract zip/brotli, then create binded package, then install it
+cat <<EOF >"$TMPDIR/Makefile"
+DIRLIST := $(find . -type d | awk -F './' '{print$2}')
+FILELIST := $(find . -type f | awk -F './' '{print$2}')
+
+build:
+	echo "Creating package..."
+
+install:
+	for d in \$(DIRLIST); do install -dm755 \$(DESTDIR)/\$\$d; done
+	for i in \$(FILELIST); do install -Dm755 \$\$i \$(DESTDIR)/\$\$i; done
+EOF
+
+"$GEARLIB"/makepkg/genbuild \
+	-A "$arch" \
+	-D "$description" \
+	-N "flashablezip-$id" \
+	-M "$author" \
+	-O "$TMPDIR" \
+	-d "gearlock-core" \
+	-r "$revision" \
+	-u "$updateJson" \
+	-v "$version"
+
+abuild -Ff
+
+cd "$CURRENT_DIR"
+

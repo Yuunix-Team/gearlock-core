@@ -2,3 +2,14 @@
 
 # just need to run update-binary
 # and add to gqueue
+
+
+# TODO: simulate a magisk/ksu environment to install flashable zips
+
+if [ -d /data/adb/ksu ] && strings "$WORKDIR/META-INF/com/google/android/update-binary" | grep -iE "ksu|kernelsu"; then
+	ILIB=ksu
+else
+	ILIB=magisk
+fi
+
+. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
