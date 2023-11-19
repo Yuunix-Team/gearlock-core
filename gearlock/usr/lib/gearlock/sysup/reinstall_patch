@@ -13,13 +13,6 @@ loop_mount() {
 }
 
 patch_img() {
-	local line
-
-	# GXP package patching, deprecated
-	while read -r line; do
-		[ -d "/$line" ] && mkdir -p "$NEWIMG/${line#system/}" && continue
-		cp "/$line" "$NEWIMG/${line#system/}"
-	done <<<"$(grep -hE "^system" "$GXP_DB"/*/files)"
 
 	# APK package patching
 	# basically, no package needs to have file path in /system,
@@ -32,15 +25,15 @@ patch_img() {
 
 fsize() { du -sk "$1" | cut -f 1; }
 
-checkimg() {
-	newsize=$(($(fsize "$NEWIMG") + total_psize))
-	((FREESPACE < newsize)) && exit 1
-	resize2fs "$NEWIMG" ${newsize}K
-	NEWIMG=$(loop_mount "$NEWIMG")
-}
+# TODO: rewrite this func to raise NEWIMG by the size of its module
+# checkimg() {
+# 	newsize=$(($(fsize "$NEWIMG") + total_psize))
+# 	"$GEARLIB"/checkfree "$newsize" || exit 1
+# 	resize2fs "$NEWIMG" ${newsize}K
+# 	NEWIMG=$(loop_mount "$NEWIMG")
+# }
 
-FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
-total_psize=$(du -sck $(sed -n 's|^system|/system/p' "$GXP_DB"/*/files) | tail -1 | cut -f 1)
+# total_psize=$(du -sck $(sed -n 's|^system|/system/p' "$GXP_DB"/*/files) | tail -1 | cut -f 1)
 
 case "$(blkol TYPE "$NEWIMG")" in
 ext*) checkimg && is_img=true ;;

@@ -16,8 +16,8 @@ fi
 cancel_convert() {
 	echo "Cancelling.." >&2
 	case "${LAST_CMD%% *}" in
-		rsync) rm -rf "$tmpdir" ;;
-		rm) $LAST_CMD ;;
+	rsync) rm -rf "$tmpdir" ;;
+	rm) $LAST_CMD ;;
 	esac
 	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
 	exit 2
@@ -38,16 +38,18 @@ check_space() {
 		;;
 	esac
 
+	FREESPACES=($("$GEARLIB"/checkfree))
+
 	if [ "$COPYTORAM" = true ]; then
-        TMPSPACE=${FREESPACES[1]}
-        ((NEEDED_SPACE > TMPSPACE)) &&
-                echo "COPYTORAM is enabled, but there's not enough RAM to perform this action, falling back..." &&
-                TMPSPACE=${FREESPACES[0]} ||
-                mount -t tmpfs -o rw,nodev,nosuid,size=$((NEEDED_SPACE + 4096))K,mode=1770 tmpfs "$TMPDIR"
-        FREESPACE=$TMPSPACE
-else
-        FREESPACE=${FREESPACES[0]}
-fi
+		TMPSPACE=${FREESPACES[1]}
+		((NEEDED_SPACE > TMPSPACE)) &&
+			echo "COPYTORAM is enabled, but there's not enough RAM to perform this action, falling back..." &&
+			TMPSPACE=${FREESPACES[0]} ||
+			mount -t tmpfs -o rw,nodev,nosuid,size=$((NEEDED_SPACE + 4096))K,mode=1770 tmpfs "$TMPDIR"
+		FREESPACE=$TMPSPACE
+	else
+		FREESPACE=${FREESPACES[0]}
+	fi
 
 	((NEEDED_SPACE > FREESPACE)) &&
 		exit 3

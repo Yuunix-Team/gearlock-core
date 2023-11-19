@@ -3,8 +3,10 @@
 die() { echo "$*" >&2 && exit 1; }
 
 NEWIMG=$1
-NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
 shift
+
+"$GEARLIB"/checkfree "$(du -sk "$NEWIMG" | awk '{print $1}')" ||
+	die "Not enough space to update system image" 1
 
 [ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
@@ -13,10 +15,5 @@ other() { THE_OTHER=$SRCDIR/system_$1$COMP; }
 echo "$SYSTEM" | grep -qE '_a(\.(img|[se]fs))?$' && other b || other a
 
 [ -e "$THE_OTHER" ] && rm -rf "$THE_OTHER"
-
-FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
-
-((NEWIMGSIZE > FREESPACE)) &&
-  die "Not enough space to update system image"
 
 mv "$NEWIMG" "$THE_OTHER"

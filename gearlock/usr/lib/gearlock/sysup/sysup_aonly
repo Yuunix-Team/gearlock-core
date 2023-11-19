@@ -1,40 +1,43 @@
 #!/bin/bash
 
-die() { echo "$*" >&2 & exit 1; }
+die() {
+	echo "$*" >&2 &
+	exit 1
+}
 
 NEWIMG=$1
 NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
 shift
 
 checkspace() {
-  ((NEWIMGSIZE > FREESPACE)) &&
-    die "Not enough space to update system image"
+	"$GEARLIB"/checkfree "$NEWIMGSIZE" ${1} ||
+		die "Not enough space to update system image"
 }
 
 case "$SYSTEM" in
 /dev/*)
-  SYSTEM=$(resolve_device "$SYSTEM")
-  FREESPACE=$(($(lsblk -dnbo SIZE "$SYSTEM") / 1024))
-  checkspace
+	SYSTEM=$(resolve_device "$SYSTEM")
+	checkspace "$SYSTEM"
 
-  if [ "$BOOTED" ]; then
-    die "Cannot live replace system image"
-  else
-    dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
-  fi
-  ;;
+	if [ "$BOOTED" ]; then
+		# TODO: add system update to queue
+		die "Cannot live replace system image"
+	else
+		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
+		yes | fsck -fvy "$SYSTEM"
+	fi
+	;;
 *)
-  [ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
+	[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
-  SYSTEM=$SRCDIR/system$COMP
-  FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
-  checkspace
+	SYSTEM=$SRCDIR/system$COMP
+	checkspace
 
-  if [ "$BOOTED" ]; then
-    mv -f "$SYSTEM" "$SYSTEM-pending_remove"
-  else
-    rm -rf "$SYSTEM"
-  fi
-  mv "$NEWIMG" "$SYSTEM"
-  ;;
+	if [ "$BOOTED" ]; then
+		mv -f "$SYSTEM" "$SYSTEM-pending_remove"
+	else
+		rm -rf "$SYSTEM"
+	fi
+	mv "$NEWIMG" "$SYSTEM"
+	;;
 esac

@@ -2,7 +2,7 @@
 
 # recovery task queueing
 # syntax: add-gqueue <task> <task arguments/options>
-# tasks: fsresize (non-btrfs/exfat only), runcmd
+# TODO: tasks: fsresize (non-btrfs/exfat only), runcmd, sysup, clean
 
 # fsresize arguments: <device/image> <size>
 # recommend doing this in recovery instead
