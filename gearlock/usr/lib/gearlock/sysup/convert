@@ -48,12 +48,7 @@ check_space
 
 # TODO: extract and update in RAM if there's enough free space (if more than Ngb of ram)
 
-if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
-	TMPDIR=$SRCDIR/tmp
-	[ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
-else
-	TMPDIR=/data/local/tmp
-fi
+TMPDIR=$(tmpdir)
 
 loop_mount() {
 	local disktmp

@@ -23,9 +23,7 @@ fi
 echo "
 {
 	\"gearlock\": {
-		\"version\": \"$(gearlock -v)\",
-		\"gxp\": \"$(gxp -v)\",
-		\"cli\": \"$(gearlock-cli -v)\"
+		\"version\": \"$(gearlock -v)\"
 	},
 	\"android\": {
 		\"release\": \"$(getprop ro.build.version.release)\",

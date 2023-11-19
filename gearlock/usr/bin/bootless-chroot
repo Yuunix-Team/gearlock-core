@@ -4,9 +4,21 @@ CHROOTDIR=${CHROOTDIR:-"/gearlock"}
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
-chroot_add_mount() { mount $@; }
+chroot_add_mount() { mountpoint -q "$2" || mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
-chroot_teardown() { UMOUNTS=$(mount | grep "on $CHROOTDIR" | awk -F ' on ' '{print $2}' | awk '{print $1}' | tac | xargs) && [ "$UMOUNTS" ] && umount $UMOUNTS; }
+
+chroot_teardown() {
+	[ "$SESSION" = 0 ] &&
+		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
+	rm "$1/tmp/session_$SESSION"
+}
+
+chroot_session() {
+	local i=0
+	while [ -f "$1/tmp/session_$i" ]; do i=$((i + 1)); done
+	SESSION=$i
+	touch "$1/tmp/session_$i"
+}
 
 chroot_setup() {
 	trap 'chroot_teardown' EXIT
@@ -19,7 +31,8 @@ chroot_setup() {
 		chroot_add_mount /android/data "$1/data" --bind &&
 		chroot_add_mount /android/vendor "$1/vendor" --bind &&
 		chroot_if_dir /android/apex /android/apex "$1/apex" --rbind &&
-		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid
+		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
+		chroot_session "$1"
 }
 
 chroot_setup "$CHROOTDIR" || die "Failed to setup chroot $CHROOTDIR"

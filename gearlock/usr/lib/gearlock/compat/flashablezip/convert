@@ -1,6 +1,11 @@
 #!/bin/bash
 
-die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+quit() {
+	rm -rf "$TMPDIR"
+	exit "$1"
+}
 
 usage() {
 	echo
@@ -68,12 +73,7 @@ fi
 
 : "${ARCH:="$(busybox arch)"}"
 
-if grep -q " ROOT=" /proc/cmdline 2>/dev/null; then
-	TMPDIR=$SRCDIR/tmp
-	[ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
-else
-	TMPDIR=/data/local/tmp
-fi
+TMPDIR=$(tmpdir)
 
 # FREESPACES and FREESPACE are different
 FREESPACES=($("$GEARLIB"/checkfree))
@@ -155,3 +155,4 @@ abuild -Ff
 
 cd "$CURRENT_DIR"
 
+quit 0

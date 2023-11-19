@@ -7,9 +7,21 @@ export BOOTED
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
-chroot_add_mount() { mount $@; }
+chroot_add_mount() { mountpoint -q "$2" || mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
-chroot_teardown() { UMOUNTS=$(mount | grep "on $CHROOTDIR" | awk -F ' on ' '{print $2}' | awk '{print $1}' | tac | xargs) && [ "$UMOUNTS" ] && umount $UMOUNTS; }
+
+chroot_teardown() {
+	[ "$SESSION" = 0 ] &&
+		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
+	rm "$1/tmp/session_$SESSION"
+}
+
+chroot_session() {
+	local i=0
+	while [ -f "$1/tmp/session_$i" ]; do i=$((i + 1)); done
+	SESSION=$i
+	touch "$1/tmp/session_$i"
+}
 
 chroot_setup() {
 	trap 'chroot_teardown' EXIT
@@ -24,7 +36,8 @@ chroot_setup() {
 		chroot_if_dir /apex /apex "$1/apex" --rbind &&
 		chroot_if_dir /linkerconfig /linkerconfig "$1/linkerconfig" --bind &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
-		chroot_add_mount / "$1/android" --bind
+		chroot_add_mount / "$1/android" --bind &&
+		chroot_session "$1"
 }
 
 [ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"

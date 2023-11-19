@@ -3,19 +3,33 @@
 # just need to run update-binary
 # and add to gqueue
 
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+quit() {
+	rm -rf "$TMPDIR"
+	exit "$1"
+}
+
+TMPDIR=$(tmpdir)
+BIN=/META-INF/com/google/android/update-binary
+"$GEARLIB/extract" "$1" "$TMPDIR" -f $BIN
 
 # TODO: simulate a magisk/ksu environment to install flashable zips
 
-if modinfo ksu 2>&1 >/dev/null && strings "$WORKDIR/META-INF/com/google/android/update-binary" | grep -iEq "^k(ernel)?su$"; then
+if modinfo ksu 2>&1 >/dev/null && strings "$TMPDIR/$BIN" | grep -iEq "^k(ernel)?su$"; then
 	ILIB=ksu
 else
 	ILIB=magisk
 fi
+
 # TODO: if ksu/magisk exists,install from cmdline. If not, then install itself
 
-if [ -f "/data/adb/$ILIB/$ILIB" ]; do
+
+if [ -f "/data/adb/$ILIB/$ILIB" ]; then
 	"/data/adb/$ILIB/$ILIB" --install-module "$1"
 else
 	. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
-	"$GEARLIB/extract" "$1" "$TMPDIR"
+  "$TMPDIR/$BIN" "$1"
 fi
+
+quit 0
