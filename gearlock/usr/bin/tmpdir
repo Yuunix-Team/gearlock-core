@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if ! {
+  grep -q " ROOT=" /proc/cmdline 2>/dev/null &&
+    TMPDIR=$SRCDIR/tmp &&
+    ([ -d "$TMPDIR" ] || mkdir -p "$TMPDIR")
+}; then
+  TMPDIR=/data/local/tmp
+fi
+
+TMPDIR="$TMPDIR/gearlock.$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"
+
+printf "%s" "$TMPDIR"

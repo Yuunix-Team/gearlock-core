@@ -29,7 +29,7 @@ if [ -f "/data/adb/$ILIB/$ILIB" ]; then
 	"/data/adb/$ILIB/$ILIB" --install-module "$1"
 else
 	. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
-  "$TMPDIR/$BIN" "$1"
+  "$TMPDIR/$BIN" gearlock 1 "$1"
 fi
 
 quit 0
