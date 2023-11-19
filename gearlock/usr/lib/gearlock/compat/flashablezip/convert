@@ -121,9 +121,10 @@ else
 
 fi
 
-PKG=$TMPDIR/$GEARDATA/extension/$id
-mkdir -p "$PKG"
-"$GEARLIB"/extract "$FILE" "$PKG"
+PKGDIR=$TMPDIR/$GEARDATA/extension/
+PKG=$PKGDIR/${id}.zip
+mkdir -p "$PKGDIR"
+mv "$FILE" "$PKG"
 
 # TODO: gen makefile & build file
 
@@ -131,15 +132,12 @@ CURRENT_DIR=$(pwd)
 cd "$TMPDIR"
 
 cat <<EOF >"$TMPDIR/Makefile"
-DIRLIST := $(find . -type d | awk -F './' '{print$2}')
-FILELIST := $(find . -type f | awk -F './' '{print$2}')
-
 build:
 	echo "Creating package..."
 
 install:
-	for d in \$(DIRLIST); do install -dm755 \$(DESTDIR)/\$\$d; done
-	for i in \$(FILELIST); do install -Dm755 \$\$i \$(DESTDIR)/\$\$i; done
+	install -dm755 \$(DESTDIR)/$PKGDIR
+	install -Dm755 $PKG/ \$(DESTDIR)/$PKG
 EOF
 
 "$GEARLIB"/makepkg/genbuild \

@@ -6,10 +6,16 @@
 
 # TODO: simulate a magisk/ksu environment to install flashable zips
 
-if [ -d /data/adb/ksu ] && strings "$WORKDIR/META-INF/com/google/android/update-binary" | grep -iE "ksu|kernelsu"; then
+if modinfo ksu 2>&1 >/dev/null && strings "$WORKDIR/META-INF/com/google/android/update-binary" | grep -iEq "^k(ernel)?su$"; then
 	ILIB=ksu
 else
 	ILIB=magisk
 fi
+# TODO: if ksu/magisk exists,install from cmdline. If not, then install itself
 
-. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
+if [ -f "/data/adb/$ILIB/$ILIB" ]; do
+	"/data/adb/$ILIB/$ILIB" --install-module "$1"
+else
+	. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
+	"$GEARLIB/extract" "$1" "$TMPDIR"
+fi
