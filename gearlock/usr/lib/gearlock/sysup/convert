@@ -38,7 +38,16 @@ check_space() {
 		;;
 	esac
 
-	FREESPACE=$("$GEARLIB"/checkfree | awk '{print $1}')
+	if [ "$COPYTORAM" = true ]; then
+        TMPSPACE=${FREESPACES[1]}
+        ((NEEDED_SPACE > TMPSPACE)) &&
+                echo "COPYTORAM is enabled, but there's not enough RAM to perform this action, falling back..." &&
+                TMPSPACE=${FREESPACES[0]} ||
+                mount -t tmpfs -o rw,nodev,nosuid,size=$((NEEDED_SPACE + 4096))K,mode=1770 tmpfs "$TMPDIR"
+        FREESPACE=$TMPSPACE
+else
+        FREESPACE=${FREESPACES[0]}
+fi
 
 	((NEEDED_SPACE > FREESPACE)) &&
 		exit 3
