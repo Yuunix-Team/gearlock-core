@@ -1,7 +1,0 @@
-# repo description
-DESC="Default GearLock Alpine repository"
-
-# repo mirrors
-SERVER="
-https://example.com/
-"

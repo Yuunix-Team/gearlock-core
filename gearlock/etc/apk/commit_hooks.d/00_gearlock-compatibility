@@ -1,57 +1,67 @@
 #!/bin/sh
 
-export PATH=/bin:/sbin:/usr/local/bin:/usr/bin:/usr/sbin
-
 FAKEDB=/var/gearlock/alpine
 
-mkdir -p $FAKEDB
+OLD_PATH=$PATH
+OLD_LD=$LD_LIBRARY_PATH
+export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin \
+	LD_LIBRARY_PATH=/lib:/usr/lib:$FAKEDB/lib
+
+/bin/busybox cp /bin/busybox /usr/bin/
+/usr/bin/busybox --install -s /usr/bin
+
+busybox mkdir -p $FAKEDB
 
 if [ ! -d "$FAKEDB/lib" ]; then
-  mkdir -p $FAKEDB/lib
-  for so in /lib/* /usr/lib/*; do
-    [ -e "$so" ] || continue
-    so_bn=$(basename "$so")
-    [ -e "$FAKEDB/lib/$so_bn" ] && continue
-    ln -s "/usr/lib/$so_bn" $FAKEDB/lib/
-  done
+	busybox mkdir -p $FAKEDB/lib
+	for so in /lib/* /usr/lib/*; do
+		[ -e "$so" ] || [ -h "$so" ] || continue
+		so_bn=$(busybox basename "$so")
+		[ -e "$FAKEDB/lib/$so_bn" ] && continue
+		!  [ -e "/lib/$so_bn" ] || [ -h "/lib/$so_bn" ] || cp -rf "/lib/$so_bn" /usr/lib
+		busybox ln -s "/usr/lib/$so_bn" $FAKEDB/lib/
+	done
 fi
 
 case "$1" in
 pre-commit)
-  unlink /bin
-  unlink /sbin
-  unlink /usr/sbin
-  mkdir -p /bin /sbin /usr/sbin
+	busybox unlink /bin
+	busybox unlink /sbin
+	busybox unlink /usr/sbin
+	busybox mkdir -p /bin /sbin /usr/sbin
 
-  unlink /lib
-  mv $FAKEDB/lib /lib
-  ;;
+	busybox unlink /lib
+	busybox mv $FAKEDB/lib /lib
+	;;
 post-commit)
-  for exe in /bin/* /sbin/* /usr/sbin/*; do
-    [ -e "$exe" ] || continue
-    exe_bn=$(basename "$exe")
-    if [ -h "/usr/bin/$exe_bn" ] || [ ! -e "/usr/bin/$exe_bn" ]; then
-      mv -f "$exe" /usr/bin/ || true
-    fi
-  done
+	for exe in /bin/* /sbin/* /usr/sbin/*; do
+		[ -e "$exe" ] || continue
+		exe_bn=$(busybox basename "$exe")
+		if [ -h "/usr/bin/$exe_bn" ] || [ ! -e "/usr/bin/$exe_bn" ]; then
+			busybox mv -f "$exe" /usr/bin/ || true
+		fi
+	done
 
-  rm -rf /bin /sbin /usr/sbin
-  ln -s usr/bin /bin
-  ln -s usr/bin /sbin
-  ln -s bin /usr/sbin
+	busybox rm -rf /bin /sbin /usr/sbin
+	busybox ln -s usr/bin /bin
+	busybox ln -s usr/bin /sbin
+	busybox ln -s bin /usr/sbin
 
-  for so in /lib/*; do
-    [ -e "$so" ] || continue
-    so_bn=$(basename "$so")
-    if [ -h "/usr/lib/$so_bn" ] || [ ! -e "/usr/lib/$so_bn" ]; then
-      mv -f "$so" /usr/lib/
-      ln -s "/usr/lib/$so_bn" /lib/
-    fi
-  done
+	for so in /lib/*; do
+		[ -e "$so" ] || continue
+		so_bn=$(busybox basename "$so")
+		if [ -h "/usr/lib/$so_bn" ] || [ ! -e "/usr/lib/$so_bn" ]; then
+			busybox mv -f "$so" /usr/lib/
+			busybox ln -s "/usr/lib/$so_bn" /lib/
+		fi
+	done
 
-  mv /lib $FAKEDB/lib
-  ln -s usr/lib /lib
+	LIBC=$(busybox find /lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
+	busybox mv /lib $FAKEDB/lib
+	$LIBC /usr/bin/busybox ln -s usr/lib /lib
 
-  sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
-  ;;
+	busybox sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
+	;;
 esac
+
+export PATH=$OLD_PATH LD_LIBRARY_PATH=$OLD_LD
