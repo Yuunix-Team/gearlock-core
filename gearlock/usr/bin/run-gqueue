@@ -1,7 +1,7 @@
 #!/bin/bash
 
 quit() {
-	rm -rf /queue.glist
+	rm -rf /var/gearlock/queue.glist
 	exit "$1"
 }
 
@@ -17,30 +17,22 @@ run_task() {
 		NEWSIZE=$2
 		case "$(blkol TYPE "$DISK")" in
 		ext[234]) resize2fs "$DISK" "$NEWSIZE" ;;
-		xfs)
-			# echo "item = 2 or item = 3"
-			;;
-		fat)
-			# echo "item = 2 or item = 3"
-			;;
-		f2fs)
-			# echo "item = 2 or item = 3"
-			;;
-		*)
-			# echo "default (none of above)"
-			;;
+		xfs) ;; # TODO: read xfs blocksize and then calculate blocks and growfs
+		vfat) fatresize "$DISK" "$NEWSIZE" ;;
+		f2fs) ;; # TODO: calculate sectors and growfs
+		*) ;;
 		esac
 		[ $? = 0 ] || die "Failed to resize filesystem at $DISK"
 		;;
-	runcmd)
-		timeout 300 bash -c "eval $*" || die "Failed to run command $*"
-		;;
+	sysup) system-update "$*";;
+	runcmd) timeout 300 bash -c "eval $*" || die "Failed to run command $*" ;;
+	clean) find /gearroot -type f -iname "*-pending_remove" -exec rm -rf {} + ;;
 	*) die "task $cmd is not supported" ;;
 	esac
 }
 
 while IFS= read -r cmd; do
 	[ "$cmd" ] && run_task $cmd
-done </queue.glist
+done </var/gearlock/queue.glist
 
 quit 0

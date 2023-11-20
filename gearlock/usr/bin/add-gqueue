@@ -21,7 +21,7 @@
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
-declare -A ORDERS=(["fsresize"]=0 ["runcmd"]=1)
+declare -A ORDERS=(["fsresize"]=0 ["sysup"]=1 ["runcmd"]=2 ["clean"]=3)
 
 TASK=$1
 case "$TASK" in
@@ -52,11 +52,13 @@ fsresize)
 		die "Device '$DISK' doesn't have enough space to resize" 4
 
 	;;
+sysup) ;;
 runcmd) ;;
+clean) ;;
 *) exit 1 ;;
 esac
 
-# rearange and pipe to /queue.glist
+# rearange and pipe to /var/gearlock/queue.glist
 
 # convert task to literal string
 FULLCMD=""
@@ -64,8 +66,8 @@ for arg in "$@"; do FULLCMD+="'$arg' "; done
 
 # load queue
 declare -a CURRENT_QUEUE=()
-[ -e "/queue.glist" ] &&
-	readarray -t CURRENT_QUEUE </queue.glist
+[ -e "/var/gearlock/queue.glist" ] &&
+	readarray -t CURRENT_QUEUE </var/gearlock/queue.glist
 
 # insert queue by prior order
 i=1
@@ -82,7 +84,7 @@ CURRENT_QUEUE=(
 )
 
 # write to queue
-echo >/queue.glist
+echo >/var/gearlock/queue.glist
 for queue in "${CURRENT_QUEUE[@]}"; do
-	printf "%s\n" "$queue" >>/queue.glist
+	printf "%s\n" "$queue" >>/var/gearlock/queue.glist
 done

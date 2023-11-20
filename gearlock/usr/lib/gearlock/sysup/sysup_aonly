@@ -1,9 +1,6 @@
 #!/bin/bash
 
-die() {
-	echo "$*" >&2 &
-	exit 1
-}
+die() { echo "$*" >&2 && exit 1; }
 
 NEWIMG=$1
 NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
@@ -19,9 +16,11 @@ case "$SYSTEM" in
 	SYSTEM=$(resolve_device "$SYSTEM")
 	checkspace "$SYSTEM"
 
-	if [ "$BOOTED" ]; then
-		# TODO: add system update to queue
-		die "Cannot live replace system partition"
+	if mountpoint -q /android; then
+		echo "WARNING: Cannot live replace mounted system partition. Scheduled to process next boot..."
+		checkspace /var/gearlock
+		mv "$NEWIMG" /var/gearlock/system.img
+		add_gqueue sysup /var/gearlock/system.img
 	else
 		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
 		yes | fsck -fvy "$SYSTEM"
@@ -33,8 +32,9 @@ case "$SYSTEM" in
 	SYSTEM=$SRCDIR/system$COMP
 	checkspace
 
-	if [ "$BOOTED" ]; then
+	if mountpoint -q /android; then
 		mv -f "$SYSTEM" "$SYSTEM-pending_remove"
+		add_gqueue clean
 	else
 		rm -rf "$SYSTEM"
 	fi
