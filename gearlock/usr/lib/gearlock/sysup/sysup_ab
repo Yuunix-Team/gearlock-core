@@ -8,12 +8,9 @@ shift
 "$GEARLIB"/checkfree "$(du -sk "$NEWIMG" | awk '{print $1}')" ||
 	die "Not enough space to update system image" 1
 
-[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
+[ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE
 
-other() { THE_OTHER=$SRCDIR/system_$1$COMP; }
-
-echo "$SYSTEM" | grep -qE '_a(\.(img|[se]fs))?$' && other b || other a
-
-[ -e "$THE_OTHER" ] && rm -rf "$THE_OTHER"
-
-mv "$NEWIMG" "$THE_OTHER"
+# Moves a to b then moves new img to a
+rm -f "$SRCDIR/system_b$COMP" 2> /dev/null
+mv "$SYSTEM" "$SRCDIR/system_b$COMP"
+mv "$NEWIMG" "$SYSTEM"

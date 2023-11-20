@@ -21,7 +21,7 @@ case "$SYSTEM" in
 
 	if [ "$BOOTED" ]; then
 		# TODO: add system update to queue
-		die "Cannot live replace system image"
+		die "Cannot live replace system partition"
 	else
 		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
 		yes | fsck -fvy "$SYSTEM"

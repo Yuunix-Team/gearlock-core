@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if ! {
-  grep -q " ROOT=" /proc/cmdline 2>/dev/null &&
+  (grep -q " ROOT=" /proc/cmdline 2>/dev/null || [ "$1" = "-system" ]) &&
     TMPDIR=$SRCDIR/tmp &&
     ([ -d "$TMPDIR" ] || mkdir -p "$TMPDIR")
 }; then
