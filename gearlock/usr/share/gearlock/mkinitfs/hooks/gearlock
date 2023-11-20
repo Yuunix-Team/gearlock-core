@@ -20,16 +20,29 @@ mount_gearlock() {
 
 	mountpoint -q "$2" && mount --bind "$2" "$1"/gearroot
 
-	mount --bind "$1/lib/modules" /android/system/lib/modules
-	mount --bind "$1/lib/firmware" /android/system/lib/firmware
+	# mount --bind "$1/lib/modules" /android/system/lib/modules
+	# mount --bind "$1/lib/firmware" /android/system/lib/firmware
 }
 
-run_latehook() {
+run_hook() {
 	GEARLOCK=${GEARLOCK:-gearlock.img}
 
 	mount_gearlock /gearlock /mnt
 
-	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot
+	/gearlock/bin/bootless-chroot pre /usr/bin/run-gqueue
+
+	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot pre
+}
+
+run_latehook() {
+	# GEARLOCK=${GEARLOCK:-gearlock.img}
+ 
+	# mount_gearlock /gearlock /mnt
+
+	# [ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot
+
+	mount --bind "$1/lib/modules" /android/system/lib/modules
+	mount --bind "$1/lib/firmware" /android/system/lib/firmware
 
 	[ -e /gearlock/var/gearlock/initialized ] ||
 		/gearlock/bin/bootless-chroot /usr/share/gearlock/first-interation.sh
@@ -38,3 +51,4 @@ run_latehook() {
 	mount --move /gearlock /android/data/gearlock
 
 }
+
