@@ -48,9 +48,9 @@ while :; do
 
 	SYSIMAGE=$("$GEARLIB"/sysup/convert "$SYSIMAGE")
 	case "$?" in
-		1) die "Extract/Compress '$SYSIMAGE' failed !" 4;;
-		2) die "Cancelled extracting/compressing '$SYSIMAGE' !" 5;;
-		*) die "Not enough space to extract/compress '$SYSIMAGE' !" 6;;
+	1) die "Extract/Compress '$SYSIMAGE' failed !" 4 ;;
+	2) die "Cancelled extracting/compressing '$SYSIMAGE' !" 5 ;;
+	*) die "Not enough space to extract/compress '$SYSIMAGE' !" 6 ;;
 	esac
 
 	[ "$patched" ] ||
@@ -72,5 +72,24 @@ if [ $? != 0 ]; then
 	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
 	die "Apply update from '$SYSIMAGE' failed !" 7
 fi
+
+# TODO: bind package version
+
+# TMPDIR=$(tmpdir)
+# CURRENT_DIR=$(pwd)
+
+# cd "$TMPDIR"
+# "$GEARLIB"/makepkg/genbuild \
+# 	-A "$(busybox arch)" \
+# 	-D "Android version" \
+# 	-M "$OS" \
+# 	-N "android" \
+# 	-O "$TMPDIR" \
+# 	-v "$(bprop version.release)" \
+# 	-r "$(bprop version.sdk)"
+
+# abuild -Ff
+
+# cd "$CURRENT_DIR"
 
 [ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
