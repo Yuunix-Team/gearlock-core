@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# execute /queue.glist first, if exists
+# execute /var/gearlock/queue.glist first, if exists
 
 
 # then load new system image in /gearload, if exists
