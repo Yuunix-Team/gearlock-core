@@ -65,7 +65,7 @@ while :; do
 	SYSTEM_TYPE=$OLD_SYSTEM_TYPE
 	export SYSTEM_TYPE
 done
-
+# TODO: umount & remount system
 SYSUP_STATUS=$("$GEARLIB/sysup/sysup_$MODE" "$SYSIMAGE")
 
 if [ $? != 0 ]; then
