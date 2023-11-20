@@ -1,0 +1,38 @@
+#!/bin/bash
+
+quit() {
+	rm -rf /var/gearlock/queue.glist
+	exit "$1"
+}
+
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+run_task() {
+	qname=$(sed -r "s/^'([a-z]+)'/\1/g" <<<"$1")
+	echo "Running task $*"
+	shift
+	case "$qname" in
+	fsresize)
+		DISK=$1
+		NEWSIZE=$2
+		case "$(blkol TYPE "$DISK")" in
+		ext[234]) resize2fs "$DISK" "$NEWSIZE" ;;
+		xfs) ;; # TODO: read xfs blocksize and then calculate blocks and growfs
+		vfat) fatresize "$DISK" "$NEWSIZE" ;;
+		f2fs) ;; # TODO: calculate sectors and growfs
+		*) ;;
+		esac
+		[ $? = 0 ] || die "Failed to resize filesystem at $DISK"
+		;;
+	sysup) system-update "$*";;
+	runcmd) timeout 300 bash -c "eval $*" || die "Failed to run command $*" ;;
+	clean) find /gearroot -type f -iname "*-pending_remove" -exec rm -rf {} + ;;
+	*) die "task $cmd is not supported" ;;
+	esac
+}
+
+while IFS= read -r cmd; do
+	[ "$cmd" ] && run_task $cmd
+done </var/gearlock/queue.glist
+
+quit 0
