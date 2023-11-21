@@ -6,6 +6,19 @@ OLD_LD=$LD_LIBRARY_PATH
 export PATH="/data/gearlock/bin/:$PATH"
 export LD_LIBRARY_PATH="/data/gearlock/lib/:${LD_LIBRARY_PATH:-/system/lib:/lib}"
 
+declare -A keyterms=(
+["gearlock"]="version chroot" 
+["android"]="release sdkInt buildNo suHandler gmsPrvd armLayer mac" 
+["graphic"]="resolution dpi glVendor glRenderer glVersion"
+["kernel"]="version build arch uptime"
+["cpu"]="name cores vendor freqRange governor governors_avail"
+["gpu"]="name vendor"
+["mem"]="ram swap internalStorage totalStorage"
+["hw"]="model bios"
+)
+
+gearlock.version() { apk ; }
+
 for src in /etc/os-release /etc/lsb-release /usr/lib/lsb-release; do
 	[ -e "$src" ] && . "$src" && break
 done

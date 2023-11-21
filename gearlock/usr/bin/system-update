@@ -33,7 +33,10 @@ if [ -f "$SIG" ]; then
 	"$GEARLIB"/checksum "$SIG" "$SYSIMAGE" || die "Invalid Signature '$SIG' !"
 else
 	read -rn 1 -p "No Signature given. Continue? [y/n]: " confirm
-	[ "$confirm" = y ] || exit
+	[ "$confirm" = y ] || exit 1
+	# TODO: generate signature
+	SIG=/tmp/"$SYSIMAGE.sig"
+	gpg --detach-sign -o "$SIG"
 fi
 
 OLD_SYSTEM_TYPE=$SYSTEM_TYPE
@@ -66,11 +69,15 @@ while :; do
 	export SYSTEM_TYPE
 done
 
-SYSUP_STATUS=$("$GEARLIB/sysup/sysup_$MODE" "$SYSIMAGE")
+SYSUP_STATUS=$("$GEARLIB/sysup/sysup_$MODE" "$SYSIMAGE" "$SIG")
 
 if [ $? != 0 ]; then
 	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
 	die "Apply update from '$SYSIMAGE' failed !" 7
+fi
+
+if [ "$SYSUP_STATUS" = processed ]; then
+	"$GEARDATA"/first-integration.sh
 fi
 
 # TODO: bind package version
