@@ -56,7 +56,7 @@ post-commit)
 		fi
 	done
 
-	LIBC=$(busybox find /lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
+	LIBC=$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
 	busybox mv /lib $FAKEDB/lib
 	$LIBC /usr/bin/busybox ln -s usr/lib /lib
 
