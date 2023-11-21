@@ -15,9 +15,8 @@ shift
 [ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE
 
 # Moves a to b then moves new img to a
-rm -f "$SRCDIR/system_b$COMP" 2> /dev/null
+rm -f "$SRCDIR/system_b$COMP" 2>/dev/null
 mv "$SYSTEM" "$SRCDIR/system_b$COMP"
 mv "$NEWIMG" "$SYSTEM"
 
 printf 'processed'
-

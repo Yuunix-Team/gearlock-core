@@ -51,7 +51,7 @@ rm -rf /root/packages/*/*/*.apk
 for kernel in /system/lib/modules/*/; do
 	kernel=$(basename "$kernel")
 	build_bindpkg \
-		modules/"$kernel"
+		modules/"$kernel" \
 		-A "$(busybox arch)" \
 		-D "Linux kernel $kernel - $OS" \
 		-l "GPL2" \

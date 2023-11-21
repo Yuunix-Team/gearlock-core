@@ -75,7 +75,6 @@ fi
 
 TMPDIR=$(tmpdir)
 
-# FREESPACES and FREESPACE are different
 "$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")" ||
 	die "Not enough space to perform this action" 3
 

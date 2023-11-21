@@ -5,4 +5,3 @@ case "$1" in
 esac | grep -q "$1" || exit 2
 
 umount /apex /vendor /system /android || exit 1
-

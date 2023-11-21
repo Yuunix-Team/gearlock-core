@@ -12,11 +12,12 @@ quit() {
 
 TMPDIR=$(tmpdir)
 BIN=/META-INF/com/google/android/update-binary
-"$GEARLIB/extract" "$1" "$TMPDIR" -f $BIN
+"$GEARLIB/extract" "$1" "$TMPDIR" -f $BIN ||
+	die "Failed to verify '$1'" 2
 
 # TODO: simulate a magisk/ksu environment to install flashable zips
 
-if modinfo ksu 2>&1 >/dev/null && strings "$TMPDIR/$BIN" | grep -iEq "^k(ernel)?su$"; then
+if modinfo ksu >/dev/null 2>&1 && strings "$TMPDIR/$BIN" | grep -iEq "^k(ernel)?su$"; then
 	ILIB=ksu
 else
 	ILIB=magisk
@@ -24,12 +25,12 @@ fi
 
 # TODO: if ksu/magisk exists,install from cmdline. If not, then install itself
 
-
 if [ -f "/data/adb/$ILIB/$ILIB" ]; then
 	"/data/adb/$ILIB/$ILIB" --install-module "$1"
 else
 	. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
-  "$TMPDIR/$BIN" gearlock 1 "$1"
-fi
+	"$TMPDIR/$BIN" gearlock 1 "$1"
+fi ||
+	die "Failed to install module '$1'" 1
 
 quit 0

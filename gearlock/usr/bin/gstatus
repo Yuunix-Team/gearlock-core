@@ -1,139 +1,147 @@
-#!/bin/sh
+#!/bin/bash
 
 OLD_PATH=$PATH
-OLD_LD=$LD_LIBRARY_PATH
 
-export PATH="/data/gearlock/bin/:$PATH"
-export LD_LIBRARY_PATH="/data/gearlock/lib/:${LD_LIBRARY_PATH:-/system/lib:/lib}"
+ANDROID_PATH=/system/bin:/system/bin:/product/bin:/vendor/bin
+export PATH="/bin/:/sbin:/usr/local/bin:/usr/bin:$ANDROID_PATH"
 
 declare -A keyterms=(
-["gearlock"]="version chroot" 
-["android"]="release sdkInt buildNo suHandler gmsPrvd armLayer mac" 
-["graphic"]="resolution dpi glVendor glRenderer glVersion"
-["kernel"]="version build arch uptime"
-["cpu"]="name cores vendor freqRange governor governors_avail"
-["gpu"]="name vendor"
-["mem"]="ram swap internalStorage totalStorage"
-["hw"]="model bios"
+	["0 gearlock"]="version chroot"
+	["1 android"]="release sdkInt buildNo suHandler gmsPrvd armLayer mac"
+	["2 graphic"]="resolution dpi glVendor glRenderer glVersion"
+	["3 kernel"]="version build arch uptime"
+	["4 cpu"]="name arch cores vendor freqRange governor governors_avail"
+	["5 gpu"]="name vendor"
+	["6 mem"]="ram swap internalStorage totalStorage"
+	["7 hw"]="model bios"
 )
 
-gearlock.version() { apk ; }
+ARCH="$(busybox arch)"
 
-for src in /etc/os-release /etc/lsb-release /usr/lib/lsb-release; do
-	[ -e "$src" ] && . "$src" && break
-done
+gearlock.version() {
+	apk version --no-network --force-non-repository gearlock-core |
+		tail -1 | awk '{print $1}' | sed 's/gearlock-core-//g'
+}
 
-BOOTED=$(getprop sys.boot_completed)
+gearlock.chroot() {
+	for src in /etc/os-release /etc/lsb-release /usr/lib/lsb-release; do
+		[ -e "$src" ] && . "$src" && break
+	done
+	printf "%s" "${PRETTY_NAME:-"$NAME ${VERSION_ID:-$BUILD_ID}"}"
+}
 
-cpuArch="$(busybox arch)"
+android.release() { getprop ro.build.version.release; }
 
-if command -v su; then
-	if grep -q ksu /system/lib/modules/"$(uname -r)"/modules.builtin; then
+android.sdkInt() { getprop ro.build.version.sdk; }
+
+android.buildNo() { getprop ro.build.display.id; }
+
+android.suHandler() {
+	local suHandler
+	if ! command -v su; then
+		suHandler=None
+	elif modinfo ksu; then
 		suHandler="KernelSU"
 	elif [ -e "/sbin/magisk" ]; then
 		suHandler="Magisk"
 	else
 		suHandler="SuperSU"
-	fi
-fi
+	fi >/dev/null 2>&1
+	printf "%s" "$suHandler"
+}
 
-echo "
-{
-	\"gearlock\": {
-		\"version\": \"$(gearlock -v)\",
-		\"chroot\": \"${PRETTY_NAME:-"$NAME ${VERSION_ID:-$BUILD_ID}"}\"
-	},
-	\"android\": {
-		\"release\": \"$(getprop ro.build.version.release)\",
-		\"sdkInt\": \"$(getprop ro.build.version.sdk)\",
-		\"buildNo\": \"$(getprop ro.build.display.id)\",
-		\"suHandler\": \"${suHandler}\",
-		$([ "$suHandler" = "Magisk" ] && echo "\"suVer\": \"$(magisk -v)\",")
-		\"gmsPrvd\": \"$(
-	gms=com.google.android.gms
-	provider=Google
+android.gmsPrvd() {
+	local provider=Google gms=com.google.android.gms
 	! pm list package | grep -q "$gms" && provider=None ||
 		pm dump $gms | grep -q "org.microg.gms" && provider=MicroG
-	echo "$provider"
-)\",
-		$([ "$processor" = "x86" ] && [ -d /system/lib/arm ] && echo "\"armLayer\": \"On\",")
-		\"mac\": \"$(
+	printf "%s" "$provider"
+}
+
+android.armLayer() {
+	local arm=None
+	if [[ "$ARCH" = "aarch"* ]] || [[ "$ARCH" = "arm"* ]]; then
+		arm=Native
+	elif [ -e /system/lib/libhoudini.so ]; then
+		arm=LibHoudini
+	elif [ -e /system/lib/libndk_translation.so ]; then
+		arm=LibNDK
+	fi
+	printf "%s" "$arm"
+}
+
+android.mac() {
 	ip link |
 		grep "link/ether" |
 		awk '{print $2}' |
-		xargs |
-		sed 's/ /, /g'
-)\"
-	},"
+		xargs
+}
 
-if [ "$BOOTED" = "1" ]; then
-	gfxdumpVarPreload="$(dumpsys SurfaceFlinger | grep GLES)"
-	echo "
-	\"graphics\": {
-		\"resolution\": \"$(wm size | sed 's/.*: //')\",
-		\"dpi\": \"$(wm density | sed 's/.*: //')\",
-		\"glVendor\": \"$(echo "${gfxdumpVarPreload%%,*}" | sed 's/GLES: //')\",
-		\"glRenderer\": \"$(echo "${gfxdumpVarPreload#*, }" | cut -d , -f1)\",
-		\"glVersion\": \"${gfxdumpVarPreload##*, }\"
-	},"
-fi
+gfxdumpVarPreload="$(dumpsys SurfaceFlinger | grep GLES)"
+
+graphic.resolution() { wm size | sed 's/.*: //'; }
+
+graphic.dpi() { wm density | sed 's/.*: //' | xargs; }
+
+graphic.glVendor() { echo "${gfxdumpVarPreload%%,*}" | sed 's/GLES: //'; }
+
+graphic.glRenderer() { echo "${gfxdumpVarPreload#*, }" | cut -d , -f1; }
+
+graphic.glVersion() { printf "%s" "${gfxdumpVarPreload##*, }"; }
+
+kernel.version() { uname -r; }
+
+kernel.build() { uname -v; }
+
+kernel.arch() { uname -m; }
+
+kernel.uptime() { cat /proc/uptime; }
 
 cpuinfo=/sys/devices/system/cpu
+
+cpu.name() { grep "model\ name" /proc/cpuinfo | uniq | sed 's/.*: //'; }
+
+cpu.arch() { printf "%s" "$ARCH"; }
+
+cpu.cores() { grep -c "processor" /proc/cpuinfo; }
+
+cpu.vendor() { grep "vendor_id" /proc/cpuinfo | uniq | sed 's/.*: //'; }
+
+cpu.freqRange() { cat $cpuinfo/cpu*/cpufreq/scaling_m??_freq | sort -nu | xargs; }
+
+cpu.governor() { cat $cpuinfo/cpu*/cpufreq/scaling_governor | uniq | xargs; }
+
+cpu.governors_avail() { cat $cpuinfo/cpu*/cpufreq/scaling_available_governors | uniq | xargs; }
+
 gpuinfo=$(lspci | grep 'VGA' | sed 's/.*: \(.*\)(rev.*/\1/')
-echo "
-	\"kernel\": {
-		\"version\": \"$(uname -r)\",
-		\"build\": \"$(uname -v)\",
-		\"arch\": \"$(uname -m)\",
-		\"uptime\":\"$(
-	s=$(cat /proc/uptime)
-	s=${s%%.*}
-	d="$((s / 60 / 60 / 24)) days"
-	h="$((s / 60 / 60 % 24)) hours"
-	m="$((s / 60 % 60)) minutes"
-	[ "${d%% *}" = 1 ] && d=${d%s}
-	[ "${h%% *}" = 1 ] && h=${h%s}
-	[ "${m%% *}" = 1 ] && m=${m%s}
-	[ "${d%% *}" = 0 ] && unset d
-	[ "${h%% *}" = 0 ] && unset h
-	[ "${m%% *}" = 0 ] && unset m
-	echo "${d:+$d, }${h:+$h, }$m"
-)\"
-	},
-	\"cpu\": {
-		\"name\": \"$(grep "model\ name" /proc/cpuinfo | uniq | sed 's/.*: //')\",
-		\"arch\": \"${cpuArch}\",
-		\"cores\": \"$(grep -c "processor" /proc/cpuinfo)\",
-		\"vendor\": \"$(grep "vendor_id" /proc/cpuinfo | uniq | sed 's/.*: //')\",
-		\"freqRange\": \"$(
-	freq=$(cat $cpuinfo/cpu*/cpufreq/scaling_m??_freq | sort -nu | xargs)
-	echo "$((${freq%% *} / 1000))Mhz - $((${freq##* } / 1000))MHz"
-)\",
-		\"governor\": \"$(cat $cpuinfo/cpu*/cpufreq/scaling_governor | uniq | xargs | sed 's/ /, /g')\",
-		\"governors_avail\": \"$(cat $cpuinfo/cpu*/cpufreq/scaling_available_governors | uniq | xargs | sed 's/ /, /g')\"
-	},
-	\"gpu\": {
-		\"name\": \"${gpuinfo}\",
-		\"vendor\": \"${gpuinfo%% *}\"
-	},
-	\"ram\": \"$(free -h | grep Mem | awk '{print $2}' | sed 's/i/B/')\",
-	\"storage\": \"$(
+
+gpu.name() { printf "%s" "$gpuinfo"; }
+
+gpu.vendor() { printf "%s" "${gpuinfo%% *}"; }
+
+mem.ram() { free -k | grep Mem | awk '{print $2}'; }
+
+mem.swap() { free -k | grep Swap | awk '{print $2}'; }
+
+mem.internalStorage() { df -k /data | tail -1 | awk '{print $2}'; }
+
+mem.totalStorage() {
 	df -k |
 		grep -E "^/dev/([hmnsv][dmrv]|xvd|nvme[0-9]n[0-9]p|mmcblk[0-9]p)[0-9a-z]*" |
-		awk 'NF{NF-=1};1' | sort -u | awk '{print $2}' | awk '
-		function human(x) {
-			if (x<1000) {return x} else {x/=1024}
-			s="MGTEPZY";
-			while (x>=1000 && length(s)>1)
-				{x/=1024; s=substr(s,2)}
-			return int(x+0.5) substr(s,1,1)
-		}
-		{sum+=$1}
-		END{sub(/^[0-9]+/, human(sum)); print}'
-)\",
-	\"model\":\"$(getprop ro.product.model)\",
-	\"boot\":\"$([ -d /sys/firmware/efi ] && echo "uEFI" || echo "Legacy")\"
-}"
+		awk '{s+=$2} END {print s}'
+}
+
+hw.model() { getprop ro.product.model; }
+
+hw.bios() {
+	local mode=Legacy
+	[ -d /sys/firmware/efi ] && mode="uEFI"
+	printf "%s" "$mode"
+}
+
+for keyterm in "${!keyterms[@]}"; do
+	for key in ${keyterms["$keyterm"]}; do
+		printf "%s=%s\n" "${keyterm#* }.$key" "$("${keyterm#* }.$key")"
+	done | tac
+done | tac
 
 export PATH="$OLD_PATH"
-export LD_LIBRARY_PATH="$OLD_LD"

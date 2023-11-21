@@ -34,7 +34,7 @@ if [ -f "$SIG" ]; then
 else
 	read -rn 1 -p "No Signature given. Continue? [y/n]: " confirm
 	[ "$confirm" = y ] || exit 1
-	# TODO: generate signature
+	
 	SIG=/tmp/"$SYSIMAGE.sig"
 	gpg --detach-sign -o "$SIG"
 fi
@@ -79,24 +79,5 @@ fi
 if [ "$SYSUP_STATUS" = processed ]; then
 	"$GEARDATA"/first-integration.sh
 fi
-
-# TODO: bind package version
-
-# TMPDIR=$(tmpdir)
-# CURRENT_DIR=$(pwd)
-
-# cd "$TMPDIR"
-# "$GEARLIB"/makepkg/genbuild \
-# 	-A "$(busybox arch)" \
-# 	-D "Android version" \
-# 	-M "$OS" \
-# 	-N "android" \
-# 	-O "$TMPDIR" \
-# 	-v "$(bprop version.release)" \
-# 	-r "$(bprop version.sdk)"
-
-# abuild -Ff
-
-# cd "$CURRENT_DIR"
 
 [ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST

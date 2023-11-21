@@ -19,9 +19,6 @@ mount_gearlock() {
 	esac
 
 	mountpoint -q "$2" && mount --bind "$2" "$1"/gearroot
-
-	# mount --bind "$1/lib/modules" /android/system/lib/modules
-	# mount --bind "$1/lib/firmware" /android/system/lib/firmware
 }
 
 run_hook() {
@@ -36,14 +33,8 @@ run_hook() {
 }
 
 run_latehook() {
-	# GEARLOCK=${GEARLOCK:-gearlock.img}
- 
-	# mount_gearlock /gearlock /mnt
-
-	# [ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot
-
-	mount --bind "$1/lib/modules" /android/system/lib/modules
-	mount --bind "$1/lib/firmware" /android/system/lib/firmware
+	mount --bind "/gearlock/lib/modules" /android/system/lib/modules
+	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
 
 	[ -e /gearlock/var/gearlock/initialized ] ||
 		/gearlock/bin/bootless-chroot /usr/share/gearlock/first-interation.sh

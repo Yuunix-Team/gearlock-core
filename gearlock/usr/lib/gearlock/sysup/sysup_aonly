@@ -12,7 +12,7 @@ SIG=$2
 shift 2
 
 checkspace() {
-	"$GEARLIB"/checkfree "$NEWIMGSIZE" ${1} ||
+	"$GEARLIB"/checkfree "$NEWIMGSIZE" "$1" ||
 		die "Not enough space to update system image"1
 }
 
@@ -31,8 +31,8 @@ case "$SYSTEM" in
 		printf 'Scheduled'
 	else
 		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress &&
-		yes | fsck -fvy "$SYSTEM" &&
-		printf 'processed'
+			yes | fsck -fvy "$SYSTEM" &&
+			printf 'processed'
 	fi
 	;;
 *)
