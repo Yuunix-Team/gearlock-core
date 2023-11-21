@@ -30,6 +30,7 @@ run_hook() {
 	mount_gearlock /gearlock /mnt
 
 	/gearlock/bin/bootless-chroot pre /usr/bin/run-gqueue
+	/gearlock/bin/bootless-chroot pre /usr/bin/gearload
 
 	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot pre
 }
