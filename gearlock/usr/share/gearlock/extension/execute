@@ -1,3 +1,12 @@
 #!/bin/bash
 
 # This script installs all in rootfs/ and triggers all in triggers/
+
+if [ "$1" ]; then "$GEARLIB"/sysup/mount "$1" || exit 1; fi
+
+for zip in "$GEARDATA"/extension/*.zip; do
+	"$GEARLIB"/compat/flashablezip/install "$zip"
+done
+
+if [ "$1" ]; then "$GEARLIB"/sysup/unmount "$1" || exit 1; fi
+

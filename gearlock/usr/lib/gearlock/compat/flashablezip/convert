@@ -136,7 +136,10 @@ EOF
 	-u "$updateJson" \
 	-v "$version"
 
+rm -rf /root/packages/*/*/*.apk
 abuild -Ff
+apk add /root/packages/*/*/*.apk
+rm -rf /root/packages/*/*/*.apk
 
 cd "$CURRENT_DIR"
 
