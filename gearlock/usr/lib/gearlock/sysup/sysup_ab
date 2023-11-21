@@ -1,6 +1,10 @@
 #!/bin/bash
 
-die() { echo "$*" >&2 && exit 1; }
+die() { echo "$*" >&2 && exit "${2:-1}"; }
+
+# TODO: signature verification
+"$GEARLIB"/checksum "$1" "$2" ||
+	die "Signature verification failed" 2
 
 NEWIMG=$1
 shift
@@ -14,3 +18,6 @@ shift
 rm -f "$SRCDIR/system_b$COMP" 2> /dev/null
 mv "$SYSTEM" "$SRCDIR/system_b$COMP"
 mv "$NEWIMG" "$SYSTEM"
+
+printf 'processed'
+

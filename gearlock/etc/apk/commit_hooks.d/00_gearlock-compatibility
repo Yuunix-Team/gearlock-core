@@ -18,7 +18,11 @@ if [ ! -d "$FAKEDB/lib" ]; then
 		[ -e "$so" ] || [ -h "$so" ] || continue
 		so_bn=$(busybox basename "$so")
 		[ -e "$FAKEDB/lib/$so_bn" ] && continue
+<<<<<<< HEAD
 		!  [ -e "/lib/$so_bn" ] || [ -h "/lib/$so_bn" ] || cp -rf "/lib/$so_bn" /usr/lib
+=======
+		[ ! -e "/lib/$so_bn" ] || [ -h "/lib/$so_bn" ] || cp -rf "/lib/$so_bn" /usr/lib
+>>>>>>> origin/main
 		busybox ln -s "/usr/lib/$so_bn" $FAKEDB/lib/
 	done
 fi

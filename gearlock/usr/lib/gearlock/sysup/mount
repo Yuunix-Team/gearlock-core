@@ -1,0 +1,14 @@
+#!/bin/bash
+
+case "$1" in
+/dev/*) ;;
+*) FLAGS='-o loop' ;;
+esac
+
+mount "$1" /android $FLAGS &&
+mount --bind /android/system /system &&
+mount --bind /android/vendor /vendor &&
+mount --bind /android/apex /apex
+
+exit $?
+

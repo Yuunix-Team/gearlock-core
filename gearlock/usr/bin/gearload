@@ -7,15 +7,27 @@
 # must come with signature
 # only one is allowed, ortherwise it'll skip
 NEWSYSIMG=/gearload/system*
-if [ -f "$NEWSYSIMG" ]; then
+if [ -f "$NEWSYSIMG" ] && [ -f "${NEWSYSIMG}.sig" ]; then
   system-update "$NEWSYSIMG" --sig="${NEWSYSIMG}.sig"
+  rm -rf "${NEWSYSIMG}*" 
 fi
 
-# then load all gxp packages in /gearload
-for pkg in /gearload/*.gxp /gearload/*.gxp.*; do
-  gxp -U "$pkg"
+rm -rf /root/packages/*/*/*.apk
+
+# then load all packages in /gearload
+for gxp in /gearload/*.gxp; do
+	"$GEARLIB"/compat/gearlockgxp/convert "$gxp"
 done
 
+# then load flashable zips
+for zip in /gearload/*.zip; do
+	"$GEARLIB"/compat/flashablezip/convert "$zip"
+done
+
+# then install
+rm -rf /gearload/*.gxp /gearload/*.zip
+apk add /gearload/*.apk /root/packages/*/*/*.apk
+rm -rf /root/packages/*/*/*.apk
 # finally, do injection (if needed)
 
 

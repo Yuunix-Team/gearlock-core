@@ -13,7 +13,19 @@ build_bindpkg() {
 	CURRENT_DIR=$(pwd)
 
 	cd "$TMPDIR"
+
+	mkdir -p "/usr/lib/$1"
+	cp -a "/system/lib/$1" "$(dirname "/usr/lib/$1")/$(basename "$1")"
+	shift
 	"$GEARLIB"/makepkg/genbuild $@
+
+	cat <<EOF >"$TMPDIR/Makefile"
+build:
+	echo "Creating package..."
+
+install:
+	cp -a /usr \$(DESTDIR)/
+EOF
 
 	abuild -Ff
 
@@ -35,10 +47,13 @@ for ver in $buildver; do
 done
 unset IFS
 
-cp -r /system/lib/modules /system/lib/firmware /usr/lib/
+rm -rf /root/packages/*/*/*.apk
 
 for kernel in /system/lib/modules/*/; do
+
+	kernel=$(basename "$kernel")
 	build_bindpkg \
+		modules/"$kernel"
 		-A "$(busybox arch)" \
 		-D "Linux kernel $kernel - $OS" \
 		-l "GPL2" \
@@ -49,6 +64,7 @@ for kernel in /system/lib/modules/*/; do
 done
 
 build_bindpkg \
+	firmware \
 	-A "$(busybox arch)" \
 	-D "Linux firmware - $OS" \
 	-l "GPL2 GPL3 custom" \
@@ -57,17 +73,12 @@ build_bindpkg \
 	-O "$TMPDIR" \
 	-v "$(date -d "@$(bprop "date.utc")" "+%Y%m%d.${OS// /_}")"
 
-build_bindpkg \
-	-A "$(busybox arch)" \
-	-D "Android version" \
-	-M "$OS" \
-	-N "android" \
-	-O "$TMPDIR" \
-	-v "$(bprop version.release)" \
-	-r "$(bprop version.sdk)"
+apk add /gearload/*.apk /root/packages/*/*/*.apk
+rm -rf /root/packages/*/*/*.apk
 
-rm -rf /system/lib/modules /system/lib/firmware &&
-	mkdir -p /system/lib/modules /system/lib/firmware
+# for safety, don't
+# rm -rf /system/lib/modules /system/lib/firmware &&
+# 	mkdir -p /system/lib/modules /system/lib/firmware
 
 mkdir -p /var/gearlock
 touch /var/gearlock/initialized

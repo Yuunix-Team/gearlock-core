@@ -1,14 +1,23 @@
 #!/bin/bash
 
+<<<<<<< HEAD
 die() { echo "$*" >&2 && exit 1; }
+=======
+die() { echo "$*" >&2 && exit "${2:-1}"; }
+
+# TODO :signature verification
+"$GEARLIB"/checksum "$1" "$2" ||
+	die "Signature verification failed" 2
+>>>>>>> origin/main
 
 NEWIMG=$1
 NEWIMGSIZE=$(du -sk "$NEWIMG" | awk '{print $1}')
-shift
+SIG=$2
+shift 2
 
 checkspace() {
 	"$GEARLIB"/checkfree "$NEWIMGSIZE" ${1} ||
-		die "Not enough space to update system image"
+		die "Not enough space to update system image"1
 }
 
 case "$SYSTEM" in
@@ -17,17 +26,21 @@ case "$SYSTEM" in
 	checkspace "$SYSTEM"
 
 	if mountpoint -q /android; then
-		echo "WARNING: Cannot live replace mounted system partition. Scheduled to process next boot..."
+		echo "WARNING: Cannot live replace mounted system partition. Scheduled to process next boot..." >&2
 		checkspace /var/gearlock
-		mv "$NEWIMG" /var/gearlock/system.img
-		add_gqueue sysup /var/gearlock/system.img
+		queued_img=/var/gearlock/system.img
+		mv "$NEWIMG" "$queued_img"
+		mv "$SIG" "$queued_img".sig
+		add_gqueue sysup "$queued_img"
+		printf 'Scheduled'
 	else
-		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress
-		yes | fsck -fvy "$SYSTEM"
+		dd if="$NEWIMG" of="$SYSTEM" bs=1M status=progress &&
+		yes | fsck -fvy "$SYSTEM" &&
+		printf 'processed'
 	fi
 	;;
 *)
-	[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
+	[ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE
 
 	SYSTEM=$SRCDIR/system$COMP
 	checkspace
@@ -38,6 +51,7 @@ case "$SYSTEM" in
 	else
 		rm -rf "$SYSTEM"
 	fi
-	mv "$NEWIMG" "$SYSTEM"
+	mv "$NEWIMG" "$SYSTEM" &&
+		printf 'processed'
 	;;
 esac
