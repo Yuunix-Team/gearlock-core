@@ -28,7 +28,7 @@ build_bindpkg() {
 
 	case "$1" in
 	firmware) ;;
-	*) for kernel in /boot/$BOOT_IMAGE $SRCDIR/$BOOT_IMAGE; do
+	*) for kernel in "/boot/$BOOT_IMAGE" "$SRCDIR/$BOOT_IMAGE"; do
 		[ -f "$kernel" ] && cp "$kernel" "/usr/lib/$1/kernel" && break
 	done ;;
 	esac
