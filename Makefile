@@ -16,6 +16,7 @@ DIRLIST := etc \
 	usr/lib/gearlock/compat/flashablezip/magisk \
 	usr/lib/gearlock/compat/flashablezip/ksu \
 	usr/lib/gearlock/compat/gearlockgxp \
+	usr/lib/gearlock/compat/gearlockgxp/toolchain \
 	usr/lib/gearlock/makepkg \
 	usr/share \
 	usr/share/gearlock \
