@@ -4,6 +4,16 @@
 
 BUILDPROP=/system/build.prop
 
+set_cmdline() {
+	set -- $(cat /proc/cmdline)
+	for arg in "$@"; do
+		case "$arg" in
+		ROOT=* | SRC=* | SYSTEM=* | DATA=* | GEARLOCK=*) ;;
+		*=*) eval "$arg" ;;
+		esac
+	done
+}
+
 prop() { echo -n "${1#*=}"; }
 fprop() { grep -E "ro.$1" $BUILDPROP; }
 bprop() { prop "$(fprop "build.$1=")"; }
@@ -15,7 +25,16 @@ build_bindpkg() {
 	cd "$TMPDIR"
 	mkdir -p "/usr/lib/$1"
 	cp -a "/system/lib/$1" "$(dirname "/usr/lib/$1")/$(basename "$1")"
+
+	case "$1" in
+	firmware) ;;
+	*) for kernel in /boot/$BOOT_IMAGE $SRCDIR/$BOOT_IMAGE; do
+		[ -f "$kernel" ] && cp "$kernel" "/usr/lib/$1/kernel" && break
+	done ;;
+	esac
+
 	shift
+
 	"$GEARLIB"/makepkg/genbuild $@
 
 	cat <<EOF >"$TMPDIR/Makefile"
@@ -48,18 +67,16 @@ unset IFS
 
 rm -rf /root/packages/*/*/*.apk
 
-for kernel in /system/lib/modules/*/; do
-	kernel=$(basename "$kernel")
-	build_bindpkg \
-		modules/"$kernel" \
-		-A "$(busybox arch)" \
-		-D "Linux kernel $kernel - $OS" \
-		-l "GPL2" \
-		-M "$OS" \
-		-N "linux-$kernel" \
-		-O "$TMPDIR" \
-		-v "${kernel%-*}"
-done
+kernel=$(uname -r)
+build_bindpkg \
+	modules/"$kernel" \
+	-A "$(busybox arch)" \
+	-D "Linux kernel $kernel - $OS" \
+	-l "GPL2" \
+	-M "$OS" \
+	-N "linux-$kernel" \
+	-O "$TMPDIR" \
+	-v "${kernel%-*}"
 
 build_bindpkg \
 	firmware \

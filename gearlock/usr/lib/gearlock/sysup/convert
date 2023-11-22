@@ -3,10 +3,10 @@
 trap 'LAST_CMD=$CURRENT_CMD; CURRENT_CMD=$BASH_COMMAND' DEBUG
 
 NEWIMG=$1
+SYSTEM_TYPE=$2
 
 COMP=dir
-
-case "$NEWIMG" in *.?fs | .img) COMP="${NEWIMG##*.}" ;; esac
+case "$NEWIMG" in *.?fs | *.img) COMP="${NEWIMG##*.}" ;; esac
 
 if [ "$COMP" = "$SYSTEM_TYPE" ]; then
 	echo "$NEWIMG"
@@ -20,6 +20,7 @@ cancel_convert() {
 	rm) $LAST_CMD ;;
 	esac
 	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
+	rm -rf "$TMPDIR"
 	exit 2
 }
 
@@ -33,33 +34,24 @@ check_space() {
 	dir | img) NEEDED_SPACE=$(fsize "$NEWIMG") ;;
 	?fs)
 		mounted_dir=$(loop_mount "$NEWIMG")
-		NEEDED_SPACE=$(fsize "$mounted_dir/system.img")
+		mounted_size=$(fsize "$mounted_dir/system.img")
 		umount "$mounted_dir"
+
+		case "$COMP" in
+		img) : "$mounted_size" ;;
+		dir) : "$((mounted_size * 2))" ;;
+		esac
+
+		NEEDED_SPACE=$_
 		;;
 	esac
 
-	FREESPACES=($("$GEARLIB"/checkfree))
+	TMPDIR=$("$GEARLIB"/checkfree "$NEEDED_SPACE") || exit 3
 
-	if [ "$COPYTORAM" = true ]; then
-		TMPSPACE=${FREESPACES[1]}
-		((NEEDED_SPACE > TMPSPACE)) &&
-			echo "COPYTORAM is enabled, but there's not enough RAM to perform this action, falling back..." &&
-			TMPSPACE=${FREESPACES[0]} ||
-			mount -t tmpfs -o rw,nodev,nosuid,size=$((NEEDED_SPACE + 4096))K,mode=1770 tmpfs "$TMPDIR"
-		FREESPACE=$TMPSPACE
-	else
-		FREESPACE=${FREESPACES[0]}
-	fi
-
-	((NEEDED_SPACE > FREESPACE)) &&
-		exit 3
+	mountpoint -q "$TMPDIR" && UNMOUNT_LIST="$UNMOUNT_LIST $TMPDIR"
 }
 
 check_space
-
-# TODO: extract and update in RAM if there's enough free space (if more than Ngb of ram)
-
-TMPDIR=$(tmpdir)
 
 loop_mount() {
 	local disktmp
@@ -88,24 +80,16 @@ dir_to_img() {
 		NEWIMG=$target
 }
 
-img_to_sfs() {
+img_to_mode() {
 	local target tmpdir
-	target=$TMPDIR/system.sfs
-	tmpdir=$TMPDIR/sfs
+	target=$TMPDIR/system.$1
+	tmpdir=$TMPDIR/$1
 	mkdir -p "$tmpdir" &&
 		mv "$NEWIMG" "$tmpdir/" &&
-		mksquashfs "$tmpdir/" "$target" ${SFS_COMPRESSION:+-comp SFS_COMPRESSION} $SFS_COMPRESSION_OPTS &&
-		rm -rf "$tmpdir" &&
-		NEWIMG=$target
-}
-
-img_to_efs() {
-	local target tmpdir
-	target=$TMPDIR/system.efs
-	tmpdir=$TMPDIR/efs
-	mkdir -p "$tmpdir" &&
-		mv "$NEWIMG" "$tmpdir/" &&
-		mkfs.erofs ${EFS_COMPRESSION:+-z$EFS_COMPRESSION} $EFS_COMPRESSION_OPTS "$target" "$tmpdir/" &&
+		case "$1" in
+		sfs) mksquashfs "$tmpdir/" "$target" ${SFS_COMPRESSION:+-comp SFS_COMPRESSION} $SFS_COMPRESSION_OPTS ;;
+		efs) mkfs.erofs ${EFS_COMPRESSION:+-z$EFS_COMPRESSION} $EFS_COMPRESSION_OPTS "$target" "$tmpdir/" ;;
+		esac &&
 		rm -rf "$tmpdir" &&
 		NEWIMG=$target
 }
@@ -119,17 +103,12 @@ img) case "$COMP" in
 	dir) dir_to_img ;;
 	?fs) unpack ;;
 	esac ;;
-sfs) case "$COMP" in
-	dir) dir_to_img && img_to_sfs ;;
-	img) img_to_sfs ;;
-	efs) unpack && img_to_sfs ;;
-	esac ;;
-efs) case "$COMP" in
-	dir) dir_to_img && img_to_efs ;;
-	img) img_to_efs ;;
-	sfs) unpack && img_to_efs ;;
+?fs) case "$COMP" in
+	dir) dir_to_img && img_to_mode "$SYSTEM_TYPE" ;;
+	img) img_to_mode "$SYSTEM_TYPE" ;;
+	?fs) [ "$COMP" != "$SYSTEM_TYPE" ] && unpack && img_to_mode "$SYSTEM_TYPE" ;;
 	esac ;;
 esac
 
-export UNMOUNT_LIST
+export UNMOUNT_LIST TMPDIR
 echo "$NEWIMG"

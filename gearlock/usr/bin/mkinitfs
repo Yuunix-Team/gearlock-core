@@ -969,9 +969,10 @@ EOF
 # main
 # features_dirs=${features_dir:-"${basedir%/:-}/${SYSCONFDIR#/}/features.d"}
 
-while getopts "A:c:hK:kLm:no:qr:S:t:z:" opt; do
+while getopts "Aa:c:hK:kLm:no:qr:S:t:z:" opt; do
 	case "$opt" in
 	A) HOOKS="$HOOKS ${OPTARG//,/ }" ;;
+	a) all=1 ;;
 	c) config=$OPTARG ;;
 	h) usage && exit ;;
 	k) keeptmp=1 ;;
@@ -1009,74 +1010,88 @@ basedir="${basedir%/}/"
 [[ -e /dev/fd ]] || die "/dev must be mounted!"
 
 # if [ -z "$nokernel" ]; then
-kver=${kver:-"$(uname -r)"}
-kernel="vmlinuz-$kver"
-kerneldir="${basedir}lib/modules/$kver"
+[ "$all" ] && kernels=("${basedir}lib/modules"/*) || kernels=("${basedir}lib/modules/$(uname -r)")
+
 firmwaredir="${basedir}lib/firmware"
-# fi
 
-# if [ -z "$outfile" ]; then
-outfile=${outfile:-"${basedir}boot/initrd-${kver}.img"}
-# fi
+for kerneldir in "${kernels[@]}"; do
+	kver=$(basename "$kerneldir")
 
-if [ ! -d "$kerneldir" ]; then
-	echo "$kerneldir does not exist or is not a directory"
-	exit 1
-fi
+	if [ ! -d "$kerneldir" ]; then
+		echo "$kerneldir does not exist or is not a directory"
+		break
+	fi
 
-# if [ -n "$DEBUG_KMOD" ]; then
-# 	find_kmods
-# 	exit 0
-# fi
+	for kexe in "$kerneldir"/kernel "$kerneldir"/vmlinu[xz]; do
+		[ -f "$kexe" ] && bootfile=$kexe && break
+	done
 
-if [ -z "$tmpdir" ]; then
-	tmpdir=$(mktemp -d /tmp/mkinitfs.XXXXXX)
-else
-	mkdir -p "$tmpdir"
-fi
+	if [ ! "$bootfile" ]; then
+		echo "$kerneldir does not contain a valid kernel"
+		break
+	fi
 
-if [ -z "$keeptmp" ]; then
-	[ -d "$tmpdir" ] && rm -rf "$tmpdir"/*
-fi
+	mv "$bootfile" ${basedir}boot/kernel-${kver}
 
-if [ -z "$list_sources" ] && [ -z "$quiet" ]; then
-	echo "==> initramfs: creating $outfile"
-fi
+	default_out=${basedir}boot/initrd-${kver}.img
+	[ "$all" ] && outfile=$default_out || outfile=${outfile:-$default_out}
 
-MODULES_DECOMPRESS="${MODULES_DECOMPRESS:-"yes"}"
+	# if [ -n "$DEBUG_KMOD" ]; then
+	# 	find_kmods
+	# 	exit 0
+	# fi
 
-# case "$COMPRESSION" in
-# gzip) comp="$(command -v pigz 2>/dev/null || echo gzip) -9" ;;
-# xz)
-# 	cmd_exists xz
-# 	comp="xz -C crc32 -T 0"
-# 	;;
-# zstd)
-# 	cmd_exists zstd
-# 	comp="zstd -19"
-# 	;;
-# lz4)
-# 	cmd_exists lz4
-# 	comp="lz4 --favor-decSpeed --best -lz"
-# 	;;
-# none) comp="cat" ;;
-# *)
-# 	echo "Initramfs compression \"$COMPRESSION\" not supported!"
-# 	exit 1
-# 	;;
-# esac
+	if [ -z "$tmpdir" ]; then
+		tmpdir=$(mktemp -d /tmp/mkinitfs.XXXXXX)
+	else
+		mkdir -p "$tmpdir"
+	fi
 
-initfs_base &&
-	initfs_cpscripts
-# initfs_kmods &&
-# initfs_firmware &&
-# initfs_custom_files &&
-# initfs_cpio
-rc=$?
+	if [ "$all" ] || [ -z "$keeptmp" ]; then
+		[ -d "$tmpdir" ] && rm -rf "$tmpdir"/*
+	fi
 
-# cleanup
-if [ -z "$keeptmp" ]; then
-	[ -d "$tmpdir" ] && rm -rf "$tmpdir"
-fi
+	if [ -z "$list_sources" ] && [ -z "$quiet" ]; then
+		echo "==> initramfs: creating $outfile"
+	fi
+
+	MODULES_DECOMPRESS="${MODULES_DECOMPRESS:-"yes"}"
+
+	# case "$COMPRESSION" in
+	# gzip) comp="$(command -v pigz 2>/dev/null || echo gzip) -9" ;;
+	# xz)
+	# 	cmd_exists xz
+	# 	comp="xz -C crc32 -T 0"
+	# 	;;
+	# zstd)
+	# 	cmd_exists zstd
+	# 	comp="zstd -19"
+	# 	;;
+	# lz4)
+	# 	cmd_exists lz4
+	# 	comp="lz4 --favor-decSpeed --best -lz"
+	# 	;;
+	# none) comp="cat" ;;
+	# *)
+	# 	echo "Initramfs compression \"$COMPRESSION\" not supported!"
+	# 	exit 1
+	# 	;;
+	# esac
+
+	initfs_base &&
+		initfs_cpscripts
+	# initfs_kmods &&
+	# initfs_firmware &&
+	# initfs_custom_files &&
+	# initfs_cpio
+	rc=$?
+
+	# cleanup
+	if [ "$all" ] || [ -z "$keeptmp" ]; then
+		[ -d "$tmpdir" ] && rm -rf "$tmpdir"
+	fi
+
+	unset tmpdir
+done
 
 exit $rc

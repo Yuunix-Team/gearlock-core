@@ -7,6 +7,11 @@ UNMOUNT_LIST=
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
+clean() {
+	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
+	rm -rf "$TMPDIR"
+}
+
 [ "$4" ] && die "Invalid arguments '$*'" 2
 
 while [ "$1" ]; do
@@ -31,53 +36,45 @@ done
 
 if [ -f "$SIG" ]; then
 	"$GEARLIB"/checksum "$SIG" "$SYSIMAGE" || die "Invalid Signature '$SIG' !"
+	rm -f "$SIG" 2>/dev/null
 else
 	read -rn 1 -p "No Signature given. Continue? [y/n]: " confirm
 	[ "$confirm" = y ] || exit 1
-	
-	SIG=/tmp/"$SYSIMAGE.sig"
-	gpg --detach-sign -o "$SIG"
 fi
 
-OLD_SYSTEM_TYPE=$SYSTEM_TYPE
-case "$(blkol TYPE "$NEWIMG")" in
-squashfs | erofs)
-	SYSTEM_TYPE=img
-	export SYSTEM_TYPE
-	;;
+# OLD_SYSTEM_TYPE=$SYSTEM_TYPE
+# case "$(blkol TYPE "$SYSIMAGE")" in
+# squashfs | erofs) export SYSTEM_TYPE=img ;;
+# esac
+DELETE_LIST="$SYSIMAGE"
+NEWIMG=$("$GEARLIB"/sysup/convert "$SYSIMAGE" "$SYSTEM_TYPE")
+case "$?" in
+1) die "Extract/Compress '$SYSIMAGE' failed !" 4 ;;
+2) die "Cancelled extracting/compressing '$SYSIMAGE' !" 5 ;;
+*) die "Not enough space to extract/compress '$SYSIMAGE' !" 6 ;;
 esac
 
-while :; do
+"$GEARLIB"/sysup/reinstall_patch "$SYSIMAGE" ||
+	die "Failed to patch '$SYSIMAGE'"
 
-	SYSIMAGE=$("$GEARLIB"/sysup/convert "$SYSIMAGE")
-	case "$?" in
-	1) die "Extract/Compress '$SYSIMAGE' failed !" 4 ;;
-	2) die "Cancelled extracting/compressing '$SYSIMAGE' !" 5 ;;
-	*) die "Not enough space to extract/compress '$SYSIMAGE' !" 6 ;;
-	esac
+[ "$NEWIMG" != "$SYSIMAGE" ] &&
+	SYSIMAGE=$NEWIMG &&
+	DELETE_LIST="$SYSIMAGE $DELETE_LIST"
 
-	[ "$patched" ] ||
-		"$GEARLIB"/sysup/reinstall_patch "$SYSIMAGE" &&
-		patched=true ||
-		die "Failed to patch '$SYSIMAGE'"
-
-	if [ "$OLD_SYSTEM_TYPE" = "$SYSTEM_TYPE" ]; then
-		break
-	fi
-
-	SYSTEM_TYPE=$OLD_SYSTEM_TYPE
-	export SYSTEM_TYPE
-done
+SIG=/tmp/"$(basename "$SYSIMAGE").sig"
+gpg --detach-sign -o "$SIG" "$SYSIMAGE"
 
 SYSUP_STATUS=$("$GEARLIB/sysup/sysup_$MODE" "$SYSIMAGE" "$SIG")
 
 if [ $? != 0 ]; then
-	[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
+	clean
 	die "Apply update from '$SYSIMAGE' failed !" 7
 fi
 
-if [ "$SYSUP_STATUS" = processed ]; then
-	"$GEARDATA"/first-integration.sh
-fi
+# not processing with system only
+# if [ "$SYSUP_STATUS" = processed ]; then
+# 	"$GEARDATA"/first-integration.sh
+# fi
 
-[ "$UNMOUNT_LIST" ] && umount -l $UNMOUNT_LIST
+clean
+rm -rf "$DELETE_LIST" 2>/dev/null

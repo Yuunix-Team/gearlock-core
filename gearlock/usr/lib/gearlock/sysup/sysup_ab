@@ -9,7 +9,7 @@ die() { echo "$*" >&2 && exit "${2:-1}"; }
 NEWIMG=$1
 shift
 
-"$GEARLIB"/checkfree "$(du -sk "$NEWIMG" | awk '{print $1}')" ||
+"$GEARLIB"/checkfree "$(du -sk "$NEWIMG" | awk '{print $1}')" "$SRCDIR" >/dev/null ||
 	die "Not enough space to update system image" 1
 
 [ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE

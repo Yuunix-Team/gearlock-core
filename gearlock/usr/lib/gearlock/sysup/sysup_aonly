@@ -12,7 +12,7 @@ SIG=$2
 shift 2
 
 checkspace() {
-	"$GEARLIB"/checkfree "$NEWIMGSIZE" "$1" ||
+	"$GEARLIB"/checkfree "$NEWIMGSIZE" "$1" >/dev/null ||
 		die "Not enough space to update system image"1
 }
 
@@ -39,7 +39,7 @@ case "$SYSTEM" in
 	[ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE
 
 	SYSTEM=$SRCDIR/system$COMP
-	checkspace
+	checkspace "$SRCDIR"
 
 	if mountpoint -q /android; then
 		mv -f "$SYSTEM" "$SYSTEM-pending_remove"

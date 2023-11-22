@@ -73,9 +73,7 @@ fi
 
 : "${ARCH:="$(busybox arch)"}"
 
-TMPDIR=$(tmpdir)
-
-"$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")" ||
+TMPDIR=$("$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")") ||
 	die "Not enough space to perform this action" 3
 
 # check for module.prop (magisk module format) & system.img (if it's a rom)
