@@ -1,1 +1,87 @@
 #!/bin/bash
+
+ARCH=x86 # axon's gearlock  only support x86 32 bit
+TOOLCHAIN=/usr/lib/gearlock/compat/gearlockgxp/toolchain
+SECRET_KEY='2Xj^7pAz=UN#5%=#%XQAFY-tik^jh97sz6C&2x8-dH+xPjhoz#BzP5**uk+7XH7w'
+
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+quit() {
+	rm -rf "$TMPDIR"
+	exit "$1"
+}
+
+usage() {
+	echo
+}
+
+while getopts "A:adpvh" opt; do
+	case "$opt" in
+	A) ARCH="$OPTARG" ;;
+	a) : "APKBUILD" ;;
+	d) : "DEBIAN" ;;
+	p) : "PKGBUILD" ;;
+	v) : "XBPS" ;;
+	h) usage && exit ;;
+	*) usage && exit 1 ;;
+	esac
+	TYPE=$_
+done
+shift $((OPTIND - 1))
+
+FILE=$1
+
+if [ ! "$TYPE" ]; then
+	for cmd in pacman xbps-src dpkg apk; do
+		command -v $cmd || continue
+		case "$cmd" in
+			pacman) : "PKGBUILD" ;;
+			xbps-src) : "XBPS" ;;
+			dpkg) : "DEBIAN" ;;
+			apk) : "APKBUILD" ;;
+		esac
+		TYPE=$_
+		break
+	done
+fi
+
+CONTENT=$("$TOOLCHAIN"/bin/garca l -p"$SECRET_KEY" "$FILE")
+
+TMPDIR=$("$GEARLIB"/checkfree "$(printf "%s" "$CONTENT" | tail -1 | awk '{print $3}'
+)") || 
+	die "Not enough space to perform this action" 1
+
+# check for !zygotee.sh
+
+printf "%s" "$CONTENT" | grep '!zygote.sh' ||
+	die "'$FILE' is either corrupted or not supported ..." 2
+
+CURRENT_DIR=$(pwd)
+
+"$TOOLCHAIN"/bin/garca -o"$TMPDIR" -p"$SECRET_KEY" "$FILE" ||
+	die "Failed to extract '$FILE'" 3
+
+cd "$TMPDIR"
+chmod +x '!zygote.sh'
+. '!zygote.sh'
+
+# change name format to linux packagege
+NAME="${NAME// /_}"
+NAME="gearlockgxp_${NAME,,}"
+
+reattr() {
+	[ -e "$2" ] || return
+	xargs -L1 $(eval echo "$1") < "$2" > /dev/null 2>&1
+}
+
+reattr "chmod" '.!zygote/mode'
+reattr "ln -srf" '.!zygote/link'
+
+# TODO: 
+# if /system exists:
+#	if /system/lib/modules exists, make a split kernel package
+#	if /system/lib/firmware exists, make a split firmware package
+#	or else make it a flashable zip
+# if /gearlock exists, make boot hook
+#
+
