@@ -74,7 +74,7 @@ fi
 : "${ARCH:="$(busybox arch)"}"
 
 TMPDIR=$("$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")") ||
-	die "Not enough space to perform this action" 3
+	die "Not enough space to perform this action" 1
 
 # check for module.prop (magisk module format) & system.img (if it's a rom)
 
@@ -97,7 +97,7 @@ else
 	echo "WARNING: '$FILE' is not a ksu/magisk package. Parsing from file name..."
 	filename_parse "${FILE%.*}"
 	case "$?" in
-	1) die "Architecture does not match target, canceling..." 3 ;;
+	1) die "Architecture does not match target, canceling..." 4 ;;
 	2) die "Parse filename failed, quitting..." 3 ;;
 	esac
 
