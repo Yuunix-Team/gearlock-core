@@ -18,38 +18,6 @@ prop() { echo -n "${1#*=}"; }
 fprop() { grep -E "ro.$1" $BUILDPROP; }
 bprop() { prop "$(fprop "build.$1=")"; }
 
-build_bindpkg() {
-	TMPDIR=$(tmpdir)
-	CURRENT_DIR=$(pwd)
-
-	cd "$TMPDIR"
-	mkdir -p "/usr/lib/$1"
-	cp -a "/system/lib/$1" "$(dirname "/usr/lib/$1")/$(basename "$1")"
-
-	case "$1" in
-	firmware) ;;
-	*) for kernel in "/boot/$BOOT_IMAGE" "$SRCDIR/$BOOT_IMAGE"; do
-		[ -f "$kernel" ] && cp "$kernel" "/usr/lib/$1/kernel" && break
-	done ;;
-	esac
-
-	shift
-
-	"$GEARLIB"/makepkg/genbuild $@
-
-	cat <<EOF >"$TMPDIR/Makefile"
-build:
-	echo "Creating package..."
-
-install:
-	cp -a /usr \$(DESTDIR)/
-EOF
-
-	abuild -Ff
-
-	cd "$CURRENT_DIR"
-}
-
 buildver=$(fprop "([a-z]*).version" | grep -v build)
 
 IFS="
@@ -68,8 +36,9 @@ unset IFS
 rm -rf /root/packages/*/*/*.apk
 
 kernel=$(uname -r)
-build_bindpkg \
+"$GEARLIB"/makepkg/bindpkg \
 	modules/"$kernel" \
+	"/boot/$BOOT_IMAGE" "$SRCDIR/$BOOT_IMAGE" \
 	-A "$(busybox arch)" \
 	-D "Linux kernel $kernel - $OS" \
 	-l "GPL2" \
@@ -78,7 +47,7 @@ build_bindpkg \
 	-O "$TMPDIR" \
 	-v "${kernel%-*}"
 
-build_bindpkg \
+"$GEARLIB"/makepkg/bindpkg \
 	firmware \
 	-A "$(busybox arch)" \
 	-D "Linux firmware - $OS" \

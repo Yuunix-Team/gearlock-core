@@ -1,1 +1,6 @@
 #!/bin/bash
+
+ARCH=x86 # gearlock by axon only suppport x86 32 bit
+TOOLCHAIN=/usr/lib/gearlock/compat/gearlockgxp/toolchain
+
+

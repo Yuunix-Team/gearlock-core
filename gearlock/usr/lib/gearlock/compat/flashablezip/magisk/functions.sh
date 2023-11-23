@@ -1,1 +1,1 @@
-../../../../../../../interagtions/magisk/scripts/util_functions.sh
+../../../../../../../integrations/magisk/scripts/util_functions.sh

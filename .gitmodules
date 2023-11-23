@@ -1,9 +1,9 @@
-[submodule "interagtions/kernelsu"]
-	path = interagtions/kernelsu
+[submodule "integrations/kernelsu"]
+	path = integrations/kernelsu
 	url = https://github.com/tiann/KernelSU
-[submodule "interagtions/magisk"]
-	path = interagtions/magisk
+[submodule "integrations/magisk"]
+	path = integrations/magisk
 	url = https://github.com/topjohnwu/Magisk
-[submodule "interagtions/gearlock"]
-	path = interagtions/gearlock
+[submodule "integrations/gearlock"]
+	path = integrations/gearlock
 	url = https://github.com/axonasif/gearlock

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+die() { echo "==> ERROR: $TYPE" >&2 && quit "${2:-1}"; }
+
+TYPE=$1
+
+TMPDIR=$("$GEARLIB"/checkfree "system/lib/$TYPE") ||
+  die "Not enough space to perform this action" 2
+
+CURRENT_DIR=$(pwd)
+
+cd "$TMPDIR"
+mkdir -p "usr/lib/$TYPE"
+cp -a "system/lib/$TYPE" "$(dirname "usr/lib/$TYPE")/$(basename "$TYPE")"
+
+case "$TYPE" in
+firmware) ;;
+modules/*) for kernel in "$@"; do
+  shift
+  case "$1" in
+  -*) break ;;
+  *) [ -f "$kernel" ] && cp "$kernel" "usr/lib/$1/kernel" && break ;;
+  esac
+done ;;
+esac
+
+"$GEARLIB"/makepkg/genbuild "$@"
+
+cat <<EOF >"$TMPDIR/Makefile"
+build:
+	echo "Creating package..."
+
+install:
+	cp -a /usr \$(DESTDIR)/
+EOF
+
+abuild -Ff
+
+cd "$CURRENT_DIR"
+
+rm -rf "$TMPDIR"
