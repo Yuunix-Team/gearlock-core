@@ -2,6 +2,7 @@
 
 [ -e /var/gearlock/initialized ] && exit 0
 
+ARCH=$(busybox arch)
 BUILDPROP=/system/build.prop
 
 set_cmdline() {
@@ -39,7 +40,7 @@ kernel=$(uname -r)
 "$GEARLIB"/makepkg/bindpkg \
 	modules/"$kernel" \
 	"/boot/$BOOT_IMAGE" "$SRCDIR/$BOOT_IMAGE" \
-	-A "$(busybox arch)" \
+	-A "$ARCH" \
 	-D "Linux kernel $kernel - $OS" \
 	-l "GPL2" \
 	-M "$OS" \
@@ -49,7 +50,7 @@ kernel=$(uname -r)
 
 "$GEARLIB"/makepkg/bindpkg \
 	firmware \
-	-A "$(busybox arch)" \
+	-A "$ARCH" \
 	-D "Linux firmware - $OS" \
 	-l "GPL2 GPL3 custom" \
 	-M "$OS" \

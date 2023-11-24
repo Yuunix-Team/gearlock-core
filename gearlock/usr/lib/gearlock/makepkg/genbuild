@@ -46,7 +46,7 @@ if [ ! "$TYPE" ]; then
 fi
 
 VER=${VER:-"0.0.1"}
-REL=${REL:-"1"}
+REL=${REL:-"0"}
 OUT=${OUT:-"/dev/stdout"}
 
 case "$TYPE" in
