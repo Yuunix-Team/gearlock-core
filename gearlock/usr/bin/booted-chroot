@@ -11,7 +11,7 @@ chroot_add_mount() { mountpoint -q "$2" || mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
 
 chroot_teardown() {
-	[ "$SESSION" = 0 ] &&
+	[ "$(ls "$1"/tmp/session_* | wc -l)" = 1 ] &&
 		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
 	rm "$1/tmp/session_$SESSION"
 }

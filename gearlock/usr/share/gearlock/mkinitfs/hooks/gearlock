@@ -1,5 +1,7 @@
 #!/bin/sh
 
+CHROOTCMD=/gearlock/bin/bootless-chroot
+
 mount_gearlock() {
 	mkdir -p "$1"
 
@@ -26,8 +28,8 @@ run_hook() {
 
 	mount_gearlock /gearlock /mnt
 
-	/gearlock/bin/bootless-chroot pre /usr/bin/run-gqueue
-	/gearlock/bin/bootless-chroot pre /usr/bin/gearload
+	"$CHROOTCMD" pre /usr/bin/run-gqueue
+	"$CHROOTCMD" pre /usr/bin/gearload
 
 	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot pre
 }
@@ -37,10 +39,18 @@ run_latehook() {
 	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
 
 	[ -e /gearlock/var/gearlock/initialized ] ||
-		/gearlock/bin/bootless-chroot /usr/share/gearlock/first-interation.sh
+		"$CHROOTCMD" /usr/share/gearlock/first-interation.sh
 
-	mkdir -p /android/data/gearlock
-	mount --move /gearlock /android/data/gearlock
+	# boot stage injection 
+	initrc=/android/system/etc/init/hw/init.rc
+	new_initrc=/gearlock/var/gearlock/init.rc
+	[ -f "$new_initrc" ] ||
+		sed -r 's|(^import /init.\$\{ro.hardware\}.rc)|\1\nimport /data/gearlock/etc/init/gearlock/sources.rc|' "$initrc" > "$new_initrc"
+	mount --bind "$new_initrc" "$initrc"
 
+	# move mountpoint
+	target_mnt=/android/data/gearlock
+	[ -e "$target_mnt" ] || mkdir -p "$target_mnt"
+	mount --move /gearlock "$target_mnt"
 }
 
