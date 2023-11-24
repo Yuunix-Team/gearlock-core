@@ -1,5 +1,7 @@
 #!/system/bin/sh
 
+export PATH=/system/bin:/system/xbin:/vendor/bin:/product/bin
+
 BOOTED=$(getprop sys.boot_completed)
 export BOOTED
 
@@ -44,9 +46,3 @@ chroot_setup() {
 
 chroot_setup "$CHROOTDIR" || die "Failed to setup chroot $CHROOTDIR"
 
-dns=$(getprop net.dns1)
-[ "$dns" ] || dns='8.8.8.8'
-
-SHELL=/system/bin/sh chroot "$CHROOTDIR" /bin/gshell -c " \
-echo -e \"nameserver $dns\" > /etc/resolv.conf; \
-${*:-/bin/bash}"

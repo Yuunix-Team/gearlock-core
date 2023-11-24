@@ -31,7 +31,7 @@ run_hook() {
 	"$CHROOTCMD" pre /usr/bin/run-gqueue
 	"$CHROOTCMD" pre /usr/bin/gearload
 
-	[ "$MODE" = recovery ] && /gearlock/bin/bootless-chroot pre
+	[ "$MODE" = recovery ] && "$CHROOTCMD" pre
 }
 
 run_latehook() {

@@ -16,15 +16,14 @@ makedepends_host="bash busybox git"
 [ "${DEBUG#0}" ] || makedepends_host="$makedepends_host shfmt"
 makedepends="$makedepends_host"
 # subpackages="$pkgname-doc"
-# install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
+install="$pkgname.install"
 
 # provides="initramfs-generator mkinitfs"
 # provider_priority=900 # highest
 # sha512sums=()
 
 build() {
-	git submodule init
-	git submodule update
+	git submodule update --init
 	make VERSION=$pkgver-$pkgrel DEBUG=$DEBUG
 }
 

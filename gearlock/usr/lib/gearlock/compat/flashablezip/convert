@@ -3,7 +3,7 @@
 die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
 
 quit() {
-	rm -rf "$TMPDIR"
+	# rm -rf "$TMPDIR"
 	exit "$1"
 }
 
@@ -73,8 +73,8 @@ fi
 
 : "${ARCH:="$(busybox arch)"}"
 
-TMPDIR=$("$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")") ||
-	die "Not enough space to perform this action" 1
+# TMPDIR=$("$GEARLIB"/checkfree "$("$GEARLIB"/decompsize "$FILE")") ||
+# die "Not enough space to perform this action" 1
 
 # check for module.prop (magisk module format) & system.img (if it's a rom)
 
@@ -85,8 +85,9 @@ if echo "$content" | grep -q module.prop; then
 		echo "WARNING: Architecture may not match target"
 	arch=$ARCH
 
-	"$GEARLIB"/extract "$FILE" "$TMPDIR" module.prop
-	eval "$(sed -r "s/^([a-zA-Z0-9_]+[a-zA-Z0-9_-]*=)(.*)$/\1\"\2\"/g" "$TMPDIR/module.prop" | tr '\n' ' ')"
+	"$GEARLIB"/extract "$FILE" "/tmp" module.prop
+	eval "$(sed -r "s/^([a-zA-Z0-9_]+[a-zA-Z0-9_-]*=)(.*)$/\1\"\2\"/g" "/tmp/module.prop" | tr '\n' ' ')"
+	rm -f /tmp/module.prop
 
 	revision=$versionInt
 	case "$version" in [a-zA-Z]+) version=$versionInt ;; esac
@@ -103,24 +104,20 @@ else
 
 fi
 
-PKGDIR=$TMPDIR/$GEARDATA/extension/
-PKG=$PKGDIR/${id}.zip
-mkdir -p "$PKGDIR"
-mv "$FILE" "$PKG"
-
 # TODO: gen makefile & build file
 
 CURRENT_DIR=$(pwd)
 cd "$TMPDIR"
 
-cat <<EOF >"$TMPDIR/Makefile"
-build:
-	echo "Creating package..."
+# cat <<EOF >"$TMPDIR/Makefile"
+# EOF
 
-install:
-	install -dm755 \$(DESTDIR)/$PKGDIR
-	install -Dm755 $PKG/ \$(DESTDIR)/$PKG
-EOF
+move() {
+	PKGDIR=$TMPDIR/$GEARDATA/extension/
+	PKG=$PKGDIR/${id}.zip
+	mkdir -p "$PKGDIR"
+	mv "$FILE" "$PKG"
+}
 
 "$GEARLIB"/makepkg/genbuild \
 	-A "$arch" \
@@ -131,13 +128,22 @@ EOF
 	-d "gearlock-core" \
 	-r "$revision" \
 	-u "$updateJson" \
-	-v "$version"
+	-v "$version" \
+	-S "$("$GEARLIB"/decompsize "$FILE")" \
+	-B "
+build:
+	echo 'Creating package...'
 
-rm -rf /root/packages/*/*/*.apk
-abuild -Ff
-apk add /root/packages/*/*/*.apk
-rm -rf /root/packages/*/*/*.apk
+install:
+	install -dm755 \$(DESTDIR)/$PKGDIR
+	install -Dm755 $PKG/ \$(DESTDIR)/$PKG
+"
 
-cd "$CURRENT_DIR"
+# rm -rf /root/packages/*/*/*.apk
+# abuild -Ff
+# apk add /root/packages/*/*/*.apk
+# rm -rf /root/packages/*/*/*.apk
+
+# cd "$CURRENT_DIR"
 
 quit 0

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export PATH="/usr/bin/:/usr/local/bin:/system/bin:/system/xbin"
+export PATH="/usr/bin:/usr/local/bin:/system/bin:/system/xbin"
 
 # mount all in fstab
 mount -a
@@ -43,6 +43,21 @@ SYSTEM=$(parse_devblock "$SYSTEM")
 DATA=$(parse_devblock "$DATA")
 GEARLOCK=$(parse_devblock "$GEARLOCK")
 
+# Misc
+dns='8.8.8.8'
+
+for cmd in pacman xbps-src dpkg apk; do
+	command -v $cmd || continue
+	case "$cmd" in
+	pacman) : "PKGBUILD" ;;
+	xbps-src) : "XBPS" ;;
+	dpkg) : "DEBIAN" ;;
+	apk) : "APKBUILD" ;;
+	esac
+	OSPKGTYPE=$_
+	break
+done
+
 # source config
 . "${CONFIG:="/etc/gearlock.conf"}"
 
@@ -56,6 +71,9 @@ export ROOT \
 	GEARLIB \
 	GEARDATA \
 	LOG \
-	SYSTEM_TYPE
+	SYSTEM_TYPE \
+	OSPKGTYPE
+
+echo -e "nameserver $dns" >/etc/resolv.conf
 
 bash "$@"

@@ -23,14 +23,13 @@ depends="
 	mdev-conf
 	"
 # subpackages="$pkgname-doc"
-# install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
+install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
 
 provides="initramfs-generator mkinitfs"
 provider_priority=900 # highest
 
 build() {
-	git submodule init
-	git submodule update
+	git submodule update --init
 	make VERSION=$pkgver-r$pkgrel DEBUG=$DEBUG
 }
 

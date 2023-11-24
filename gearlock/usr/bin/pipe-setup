@@ -1,0 +1,29 @@
+#!/bin/bash
+
+IN=/tmp/gin
+OUT=/tmp/gout
+ERR=/tmp/gerr
+SIG=/tmp/gsig
+
+quit() {
+	rm -f $IN $OUT $ERR $SIG
+}
+
+trap "quit" EXIT
+
+for pipe in $IN $OUT $ERR $SIG; do
+	mkfifo -m 664 $pipe
+done
+
+while :; do
+	if read -r pipe <$IN; then
+		case "${pipe}" in
+		"quit") echo "Pipe quit" && break ;;
+		"cmd "*) eval "${pipe#"cmd "}" ;;
+		*) ;;
+		esac 2>$ERR >$OUT
+		echo $? >$SIG
+	fi
+done
+
+quit
