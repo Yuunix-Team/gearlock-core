@@ -7,3 +7,12 @@
 [submodule "integrations/gearlock"]
 	path = integrations/gearlock
 	url = https://github.com/axonasif/gearlock
+[submodule "integrations/gearlock-core-pkg"]
+	path = integrations/gearlock-core-pkg
+	url = https://github.com/axonasif/gearlock-core-pkg
+[submodule "integrations/gearlock-mesa-pkg"]
+	path = integrations/gearlock-mesa-pkg
+	url = https://github.com/axonasif/gearlock-mesa-pkg
+[submodule "integrations/gearlock-kernel-pkg"]
+	path = integrations/gearlock-kernel-pkg
+	url = https://github.com/axonasif/gearlock-kernel-pkg

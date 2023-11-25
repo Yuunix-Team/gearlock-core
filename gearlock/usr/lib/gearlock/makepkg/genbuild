@@ -3,6 +3,7 @@
 die() { echo "==> ERROR: $TYPE" >&2 && quit "${2:-1}"; }
 
 quit() {
+	cd "$CURRENT_DIR"
 	rm -rf "$TMPDIR"
 	exit "$?"
 }
@@ -118,7 +119,7 @@ case "$PKGTYPE" in
 APKBUILD) abuild -Frf && apk add /root/packages/*/*/"$NAME-$VER-r$REL.apk" ;;
 PKGBUILD) makepkg -sif ;;
 XBPS) xbps-src pkg "$NAME" && do_something ;; #
-DEBIAN) dpkg-buildpackage && dpkg -i ;; #
+DEBIAN) dpkg-buildpackage && dpkg -i ;;       #
 *) ;;
 esac ||
 	die "Build package failed" 2

@@ -1,0 +1,39 @@
+#!/bin/sh
+# busybox-compatible compressed file creation tool for different compressions
+
+quit() {
+	echo "ERROR: unsupported format '$IN'"
+	exit 127
+}
+
+while [ "$1" ]; do
+	case "$1" in
+	-c) COMP=${2//,/ } && shift ;;
+	-o) OUT=${2//,/ } && shift ;;
+	*) IN="$IN $1" ;;
+	esac
+	shift
+done
+
+COMP=${COMP:-tar}
+OUT=${OUT:-/dev/stdout}
+
+case "$COMP" in
+tar) tar -cf "$OUT" "$IN" ;;
+7z) 7z a "$OUT" "$IN" ;;
+zip) zip "$OUT" "$IN" ;;
+*)
+	case "$COMP" in
+	[gl]z | bz2) : "${COMP//z/zip}" ;;
+	br) : brotli ;;
+	lzo) : lzop ;;
+	[lx]z*) : "$COMP" ;;
+	zst) : zstd ;;
+	*) quit ;;
+	esac
+	COMD=$_
+	tar -cf - "$IN" | $COMD >"$OUT"
+	;;
+esac
+
+exit $?

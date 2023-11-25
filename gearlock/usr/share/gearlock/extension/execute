@@ -8,5 +8,9 @@ for zip in "$GEARDATA"/extension/*.zip; do
 	"$GEARLIB"/compat/flashablezip/install "$zip"
 done
 
+for gxp in "$GEARDATA"/extension/*.gxp.tar*; do
+	"$GEARLIB"/compat/gearlockgxp/install "$gxp"
+done
+
 if [ "$1" ]; then "$GEARLIB"/sysup/unmount "$1" || exit 1; fi
 

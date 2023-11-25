@@ -1,8 +1,10 @@
 #!/bin/bash
 
-ARCH=x86 # axon's gearlock  only support x86 32 bit
 TOOLCHAIN=/usr/lib/gearlock/compat/gearlockgxp/toolchain
 SECRET_KEY='2Xj^7pAz=UN#5%=#%XQAFY-tik^jh97sz6C&2x8-dH+xPjhoz#BzP5**uk+7XH7w'
+
+ARCH=x86 # axon's gearlock  only support x86 32 bit
+[ "$(busybox arch)" = x86_64 ] && ARCH=x86_64
 
 die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
 
@@ -69,8 +71,8 @@ chmod +x '!zygote.sh'
 # available variables are: NAME TYPE AUTHOR VERSION SHORTDESC REQSYNC REQREBOOT GEN_UNINS SHOW_PROG DEF_HEADER
 
 # change name format to linux packagege
-NAME="${NAME// /_}"
-NAME="gearlockgxp_${NAME,,}"
+PKGNAME="${NAME// /_}"
+PKGNAME="gearlockgxp_${PKGNAME,,}"
 
 # parse version too
 VERSION=$(echo "$VERSION" | sed -r 's/^.*[^0-9\.](([0-9]+\.)+[0-9]+).*$/\1/g')
@@ -87,11 +89,12 @@ reattr "chmod" '.!zygote/mode'
 reattr "ln -srf" '.!zygote/link'
 
 # TODO:
+# !!! if anything maches the examples, do NOT add
 # if /system exists:
 #	  if /system/lib/modules exists, make a split kernel package
 #	  if /system/lib/firmware exists, make a split firmware package
 #	  or else make it a flashable zip
-# if /gearlock exists, make boot hook
+# if /gearlock exists, make boot injecttion script
 
 bindpkg() {
 	TYPE=$1
@@ -116,6 +119,7 @@ install:
 
 if [ -d system ]; then
 	if [ -d system/lib/modules ]; then
+		IS_KRL=true
 		kernel=$(basename ./system/lib/modules/*)
 		move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
 		"$GEARLIB"/makepkg/genbuild \
@@ -130,7 +134,9 @@ if [ -d system ]; then
 			-B "$MAKEFILE" &&
 			rm -rf system/lib/modules/*
 	fi
+
 	if [ -d system/lib/firmware ]; then
+		IS_FW=true
 		move() { bindpkg firmware; }
 		"$GEARLIB"/makepkg/genbuild \
 			-A "$ARCH" \
@@ -145,7 +151,9 @@ if [ -d system ]; then
 			rm -rf system/lib/firmware
 	fi
 
-	# convert to zip
+	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
+		echo
+	fi
 fi
 
-# TODO: make boot hooks
+# TODO: make boot injection scripts

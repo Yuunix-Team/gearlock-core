@@ -1,11 +1,6 @@
 #!/bin/sh
 
-# runs before anything
-run_earlyhook() {
-  export
-}
-
-# runs after mounting root
+# runs before mounting
 run_hook() {
   export
 }
