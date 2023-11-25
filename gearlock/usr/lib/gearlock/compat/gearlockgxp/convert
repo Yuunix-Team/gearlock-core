@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /etc/gxp.conf
+
 TOOLCHAIN=/usr/lib/gearlock/compat/gearlockgxp/toolchain
 SECRET_KEY='2Xj^7pAz=UN#5%=#%XQAFY-tik^jh97sz6C&2x8-dH+xPjhoz#BzP5**uk+7XH7w'
 
@@ -9,6 +11,7 @@ ARCH=x86 # axon's gearlock  only support x86 32 bit
 die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
 
 quit() {
+	cd "$CURRENT_DIR"
 	rm -rf "$TMPDIR"
 	exit "$1"
 }
@@ -98,7 +101,7 @@ reattr "ln -srf" '.!zygote/link'
 
 bindpkg() {
 	TYPE=$1
-	mkdir -p "usr/lib/$TYPE"
+	mkdir -p "$TMPDIR/usr/lib/$TYPE"
 	cp -a "system/lib/$TYPE" "$TMPDIR/$(dirname "usr/lib/$TYPE")/$(basename "$TYPE")"
 
 	case "$TYPE" in
@@ -150,10 +153,34 @@ if [ -d system ]; then
 			-B "$MAKEFILE" &&
 			rm -rf system/lib/firmware
 	fi
-
-	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
-		echo
-	fi
 fi
 
-# TODO: make boot injection scripts
+move() {
+	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
+		PKGDIR="$TMPDIR/$GEARDATA/extension"
+		PKG=$PKGDIR/${PKGNAME}.gxp.tar
+		[ "$COMPRESSION" = tar ] || PKG=$PKG.$COMPRESSION
+
+		mkdir -p "$PKGDIR"
+		"$GEARLIB"/compress \
+			-c "$COMPRESSION" \
+			-o "$PKG" \
+			system install.sh uninstall.sh
+	fi
+	if [ -d gearlock ]; then
+		echo
+		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
+	fi
+}
+
+"$GEARLIB"/makepkg/genbuild \
+	-A "$ARCH" \
+	-D "${SHORTDESC:-"$NAME - GearLock GXP package by $AUTHOR"}" \
+	-N "gearlockgxp-$PKGNAME" \
+	-M "$AUTHOR" \
+	-d "gearlock-core" \
+	-v "$VERSION" \
+	-S "$(du -sk . | awk '{print $1}')" \
+	-B "$MAKEFILE"
+
+quit 0

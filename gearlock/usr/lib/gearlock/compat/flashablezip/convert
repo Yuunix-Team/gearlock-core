@@ -124,7 +124,6 @@ move() {
 	-D "$description" \
 	-N "flashablezip-$id" \
 	-M "$author" \
-	-O "$TMPDIR" \
 	-d "gearlock-core" \
 	-r "$revision" \
 	-u "$updateJson" \
