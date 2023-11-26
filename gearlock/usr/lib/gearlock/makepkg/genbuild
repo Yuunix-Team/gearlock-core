@@ -12,7 +12,7 @@ usage() {
 	echo
 }
 
-while getopts "A:B:D:d:hI:l:M:m:o:P:p:r:S:u:v:t:" opt; do
+while getopts "A:B:D:d:hI:l:M:m:o:P:p:r:S:s:u:v:t:" opt; do
 	case "$opt" in
 	A) ARCH="$OPTARG" ;;
 	B) MAKEFILE="$OPTARG" ;;
@@ -29,6 +29,7 @@ while getopts "A:B:D:d:hI:l:M:m:o:P:p:r:S:u:v:t:" opt; do
 	p) PROVIDES="${OPTARG//,/ }" ;;
 	r) REL=$OPTARG ;;
 	S) NEEDED_SPACE=$((OPTARG * 2)) ;;
+	s) SCRIPTS=$OPTARG ;;
 	u) URL=$OPTARG ;;
 	v) VER=$OPTARG ;;
 	t) PKGTYPE="$OPTARG" ;;
@@ -41,7 +42,7 @@ for arg in "$NAME" "$ARCH" "$MAINTAINER"; do
 	[ "$arg" ] || exit 1
 done
 
-PKGTYPE=${PKGTYPE:-"$OSPKGPKGTYPE"}
+PKGTYPE=${PKGTYPE:-"$OSPKGTYPE"}
 VER=${VER:-"0.0.1"}
 REL=${REL:-"0"}
 # OUT=${OUT:-"/dev/stdout"}
@@ -73,6 +74,7 @@ ${DEPENDS:+"depends=\"$DEPENDS\""}
 ${MAKEDEPENDS:+"makedepends=\"$MAKEDEPENDS\""}
 ${PROVIDES:+"provides=\"$PROVIDES\""}
 ${PROVIDE_PRIOR:+"provider_priority=\"$PROVIDE_PRIOR\""}
+${SCRIPTS:+"install=\"$SCRIPTS\""}
 
 build() {
 	make VERSION="\$pkgver-\$pkgrel"

@@ -16,9 +16,9 @@ patch_img() {
 
 	# APK package patching
 	# basically, no package needs to have file path in /system,
-	# instead, place it inside /usr/share/gearlock/extension/rootfs/{system,etc,...}
-	# and triggers inside /usr/share/gearlock/extension/triggers
-	"$GEARDATA"/extension/execute "$NEWIMG/"
+	# instead, place it inside /usr/share/gearlock/extensions/rootfs/{system,etc,...}
+	# and triggers inside /usr/share/gearlock/extensions/triggers
+	"$GEARDATA"/extensions/execute "$NEWIMG/"
 
 	# addon.d included
 }

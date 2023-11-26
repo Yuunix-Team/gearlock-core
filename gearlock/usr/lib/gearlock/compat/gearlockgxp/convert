@@ -2,7 +2,7 @@
 
 . /etc/gxp.conf
 
-TOOLCHAIN=/usr/lib/gearlock/compat/gearlockgxp/toolchain
+TOOLCHAIN=$GEARLIB/compat/gearlockgxp/toolchain
 SECRET_KEY='2Xj^7pAz=UN#5%=#%XQAFY-tik^jh97sz6C&2x8-dH+xPjhoz#BzP5**uk+7XH7w'
 
 ARCH=x86 # axon's gearlock  only support x86 32 bit
@@ -57,7 +57,7 @@ TMPDIR=$("$GEARLIB"/checkfree "$(
 )") ||
 	die "Not enough space to perform this action" 1
 
-# check for !zygotee.sh
+# check for !zygote.sh
 
 printf "%s" "$CONTENT" | grep '!zygote.sh' ||
 	die "'$FILE' is either corrupted or not supported ..." 2
@@ -71,6 +71,10 @@ cd "$TMPDIR"
 chmod +x '!zygote.sh'
 . '!zygote.sh'
 
+if [ -d "system/lib64" ] || [ -d "system/vendor/lib64" ]; then
+	echo "WARNING: This package is intended to run on different architecture and it may not work on your machine"
+	rm -r system/lib64 system/vendor/lib64 2>/dev/null
+fi
 # available variables are: NAME TYPE AUTHOR VERSION SHORTDESC REQSYNC REQREBOOT GEN_UNINS SHOW_PROG DEF_HEADER
 
 # change name format to linux packagege
@@ -157,15 +161,11 @@ fi
 
 move() {
 	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
-		PKGDIR="$TMPDIR/$GEARDATA/extension"
-		PKG=$PKGDIR/${PKGNAME}.gxp.tar
-		[ "$COMPRESSION" = tar ] || PKG=$PKG.$COMPRESSION
+		PKGDIR="$TMPDIR/$GEARDATA/extensions"
+		PKG=legacy-$PKGDIR/${PKGNAME}.gxp
 
-		mkdir -p "$PKGDIR"
-		"$GEARLIB"/compress \
-			-c "$COMPRESSION" \
-			-o "$PKG" \
-			system install.sh uninstall.sh
+		mkdir -p "$PKG"
+		mv -f system install.sh uninstall.sh '!zygote.sh' "$PKG"
 	fi
 	if [ -d gearlock ]; then
 		echo

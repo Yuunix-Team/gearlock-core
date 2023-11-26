@@ -113,7 +113,7 @@ cd "$TMPDIR"
 # EOF
 
 move() {
-	PKGDIR=$TMPDIR/$GEARDATA/extension/
+	PKGDIR=$TMPDIR/$GEARDATA/extensions/
 	PKG=$PKGDIR/${id}.zip
 	mkdir -p "$PKGDIR"
 	mv "$FILE" "$PKG"
