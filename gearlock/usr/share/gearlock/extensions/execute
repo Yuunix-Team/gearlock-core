@@ -8,7 +8,7 @@ for zip in "$GEARDATA"/extensions/*.zip; do
 	"$GEARLIB"/compat/flashablezip/install "$zip"
 done
 
-for gxp in "$GEARDATA"/extensions/*.gxp.tar*; do
+for gxp in "$GEARDATA"/extensions/*.gxp/; do
 	"$GEARLIB"/compat/gearlockgxp/install "$gxp"
 done
 

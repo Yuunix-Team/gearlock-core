@@ -1,0 +1,24 @@
+#!/bin/bash
+
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
+
+quit() {
+	cd "$CURRENT_DIR"
+	rm -rf "$TMPDIR"
+	exit "$1"
+}
+
+DIR=$1
+
+case "$DIR" in
+legacy-*.gxp) export PATH=$GEARLIB/compat/gearlockgxp/toolchain:$PATH ;;
+esac
+
+CURRENT_DIR=$(pwd)
+cd "$DIR"
+
+. '!zygote.sh'
+./install.sh ||
+	die "Failed to install '$FILE'" 1
+
+quit 0
