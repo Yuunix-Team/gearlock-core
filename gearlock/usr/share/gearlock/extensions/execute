@@ -4,11 +4,11 @@
 
 if [ "$1" ]; then "$GEARLIB"/sysup/mount "$1" || exit 1; fi
 
-for zip in "$GEARDATA"/extension/*.zip; do
+for zip in "$GEARDATA"/extensions/*.zip; do
 	"$GEARLIB"/compat/flashablezip/install "$zip"
 done
 
-for gxp in "$GEARDATA"/extension/*.gxp.tar*; do
+for gxp in "$GEARDATA"/extensions/*.gxp.tar*; do
 	"$GEARLIB"/compat/gearlockgxp/install "$gxp"
 done
 

@@ -124,6 +124,7 @@ if [ -d system ]; then
 	if [ -d system/lib/modules ]; then
 		IS_KRL=true
 		kernel=$(basename ./system/lib/modules/*)
+		# shellcheck disable=2317
 		move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
 		"$GEARLIB"/makepkg/genbuild \
 			-A "$ARCH" \
@@ -140,6 +141,7 @@ if [ -d system ]; then
 
 	if [ -d system/lib/firmware ]; then
 		IS_FW=true
+		# shellcheck disable=2317
 		move() { bindpkg firmware; }
 		"$GEARLIB"/makepkg/genbuild \
 			-A "$ARCH" \
@@ -155,9 +157,10 @@ if [ -d system ]; then
 	fi
 fi
 
+# shellcheck disable=2317
 move() {
 	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
-		PKGDIR="$TMPDIR/$GEARDATA/extension"
+		PKGDIR="$TMPDIR/$GEARDATA/extensions"
 		PKG=$PKGDIR/${PKGNAME}.gxp.tar
 		[ "$COMPRESSION" = tar ] || PKG=$PKG.$COMPRESSION
 
@@ -168,8 +171,13 @@ move() {
 			system install.sh uninstall.sh
 	fi
 	if [ -d gearlock ]; then
-		echo
 		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
+		# shellcheck disable=2143
+		if [ "$(grep -Ev "^(#.*|\s*((nout )?geco\s*(['\"].*['\"])?[^|><]*))$" gearlock/extension.sh)" ]; then
+			GXTDIR="$TMPDIR/$(dirname "$GEARDATA")/gearlock-legacy/extensions/$NAME"
+			mkdir -p "$GXTDIR"
+			mv gearlock/extension.sh "$GXTDIR"/
+		fi
 	fi
 }
 
