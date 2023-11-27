@@ -15,8 +15,21 @@ shift
 [ "$SYSTEM_TYPE" = dir ] || COMP=.$SYSTEM_TYPE
 
 # Moves a to b then moves new img to a
-rm -f "$SRCDIR/system_b$COMP" 2>/dev/null
-mv "$SYSTEM" "$SRCDIR/system_b$COMP"
-mv "$NEWIMG" "$SYSTEM"
+# rm -f "$SRCDIR/system_b$COMP" 2>/dev/null
+# mv "$SYSTEM" "$SRCDIR/system_b$COMP"
+# mv "$NEWIMG" "$SYSTEM"
+#
+#
+MODEFILE=/var/gearlock/active
+[ -e $MODEFILE ] &&
+	. $MODEFILE ||
+	ACTIVE=a
+
+case "$ACTIVE" in a) : b ;; b) : a ;; esac
+ACTIVE=$_
+
+mv -f "$NEWIMG" "$SRCDIR/system_$ACTIVE$COMP" &&
+	echo "ACTIVE=$ACTIVE" >$MODEFILE &&
+	set-active-grub "$ACTIVE"
 
 printf 'processed'

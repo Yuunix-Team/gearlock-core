@@ -273,8 +273,14 @@ gen_menuentry() {
 
 case "$MODE" in
 ab)
+	echo "
+case \"\$ACTIVE\" in
+a) PRIMARY=a SECONDARY=b ;;
+b) PRIMARY=b SECONDARY=a ;;
+esac
+"
 	[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
-	for i in a b; do gen_menuentry "system_$i${COMP}"; done
+	for i in PRIMARY SECONDARY; do gen_menuentry "system_\$$i${COMP}"; done
 	;;
 *) gen_menuentry "$SYSTEM" ;;
 esac

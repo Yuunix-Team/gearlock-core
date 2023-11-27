@@ -1,0 +1,2 @@
+#!/bin/sh
+grub-editenv /boot/grub/grubenv set "ACTIVE=$1"
