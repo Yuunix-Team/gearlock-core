@@ -172,9 +172,10 @@ move() {
 		mv -f system install.sh uninstall.sh '!zygote.sh' "$PKG"
 	fi
 	if [ -d gearlock ]; then
+		# shellcheck disable=2143
+		# command outputs newlines (non-empty)
 		filter_cmd() { [ "$(grep -Ev "^(#.*|\s*((nout )?(geco|echo|printf|check_compat)(\s+(['\"].*['\"])*)?[^|><]*))$" "$@")" ]; }
 		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
-		# shellcheck disable=2143
 		if filter_cmd gearlock/extension.sh; then
 			GXTDIR="$TMPDIR/$(dirname "$GEARDATA")/gearlock-legacy/extensions/$NAME"
 			mkdir -p "$GXTDIR"
