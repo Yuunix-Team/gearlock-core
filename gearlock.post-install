@@ -2,9 +2,23 @@
 
 export PATH=/bin:/sbin:/usr/local/bin:/usr/bin:/usr/sbin
 
-mkdir -p android apex boot data gearroot gearload system vendor linkerconfig var/gearlock/overlay
+cd /
+mkdir -p \
+	android \
+	boot \
+	var/gearlock/overlay \
+	data \
+	system \
+	storage \
+	sdcard \
+	apex \
+	linkerconfig \
+	debug_ramdisk \
+	system_ext \
+	product \
+	vendor
 
-echo 'localhost' > /etc/hostname
+echo 'localhost' >/etc/hostname
 
 gpg --batch --passphrase '' --quick-gen-key 'root@localhost' default default
 

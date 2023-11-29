@@ -29,6 +29,8 @@ if [ -f "/data/adb/$ILIB/$ILIB" ]; then
 	"/data/adb/$ILIB/$ILIB" --install-module "$1"
 else
 	. "$GEARLIB/compat/flashablezip/$ILIB/functions.sh"
+	export ANDROID_ROOT=/var/gearlock/overlay/system
+	export SYSTEM_DIR=$ANDROID_ROOT
 	"$TMPDIR/$BIN" gearlock 1 "$1"
 fi ||
 	die "Failed to install module '$1'" 1

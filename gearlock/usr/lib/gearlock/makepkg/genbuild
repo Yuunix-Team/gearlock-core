@@ -119,7 +119,7 @@ printf "%s" "$MAKEFILE" >Makefile
 
 case "$PKGTYPE" in
 APKBUILD) abuild -Frf && apk add /root/packages/*/*/"$NAME-$VER-r$REL.apk" ;;
-PKGBUILD) makepkg -sif ;;
+PKGBUILD) chown -hR system:system . && su system -c 'makepkg -sf' && pacman -U *.pkg.tar* ;;
 XBPS) xbps-src pkg "$NAME" && do_something ;; #
 DEBIAN) dpkg-buildpackage && dpkg -i ;;       #
 *) ;;

@@ -20,9 +20,10 @@ legacy-*.gxp)
 	;;
 esac
 
-./install.sh ||
+export ANDROID_ROOT=/var/gearlock/overlay/system
+export SYSTEM_DIR=$ANDROID_ROOT
+
+bash -c ./install.sh ||
 	die "Failed to install '$FILE'" 1
 
 quit 0
-
-# TODO: make overlayfs

@@ -164,23 +164,40 @@ fi
 
 # shellcheck disable=2317
 move() {
-	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ]; then
-		PKGDIR="$TMPDIR/$GEARDATA/extensions"
-		PKG=legacy-$PKGDIR/${PKGNAME}.gxp
+	# shellcheck disable=2143
+	# command outputs newlines (non-empty)
+	filter_cmd() { [ "$(grep -Ev "^(#.*|\s*((nout )?(geco|echo|printf|check_compat)(\s+(['\"].*['\"])*)?[^|><]*))$" "$@")" ]; }
+
+	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ] && [ -d system ]; then
+		PKGDIR="$TMPDIR/var/gearlock/overlay"
+		PKG=$TMPDIR/$GEARDATA/extensions/legacy-${PKGNAME}.gxp
 
 		mkdir -p "$PKG"
-		mv -f system install.sh uninstall.sh '!zygote.sh' "$PKG"
+
+		for f in install.sh uninstall.sh; do
+			if ! filter_cmd "$f" 2>/dev/null; then
+				rm -f "$f"
+				continue
+			fi
+			# shellcheck disable=2016
+			# some extensions write directly to /system
+			# this is not intended
+			sed -ri 's/("|\s)\/system/$SYSTEM_DIR/g' "$f" 2>/dev/null
+		done
+
+		mv system "$PKGDIR/"
+
+		find . -maxdepth 1 -not -path ./gearlock -exec mv -t "$PKG/" {} +
 	fi
+
 	if [ -d gearlock ]; then
-		# shellcheck disable=2143
-		# command outputs newlines (non-empty)
-		filter_cmd() { [ "$(grep -Ev "^(#.*|\s*((nout )?(geco|echo|printf|check_compat)(\s+(['\"].*['\"])*)?[^|><]*))$" "$@")" ]; }
-		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
 		if filter_cmd gearlock/extension.sh; then
 			GXTDIR="$TMPDIR/$(dirname "$GEARDATA")/gearlock-legacy/extensions/$NAME"
 			mkdir -p "$GXTDIR"
 			mv gearlock/extension.sh "$GXTDIR"/
 		fi
+		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
+		# gearlock/gearboot/init.sh to mkinitfs's late_hook
 	fi
 }
 
