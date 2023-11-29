@@ -28,20 +28,33 @@ chroot_session() {
 chroot_setup() {
 	trap 'chroot_teardown' EXIT
 
+	TG=$1
+	rbind_map() { chroot_add_mount "/$1" "$TG/$1" --rbind; }
+	rbind_ifdir() { chroot_if_dir "$1" "$1" "$TG/$1" --rbind; }
+
+	indir_map_data() {
+		for d in /data/*; do
+			[ "$d" = /data/adb ] && continue
+			mkdir -p "$TG/$d"
+			rbind_map "$d"
+		done
+	}
+
 	chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
 		chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&
 		chroot_if_dir /sys/firmware/efi/efivars efivarfs "$1/sys/firmware/efi/efivars" -t efivarfs -o nosuid,noexec,nodev &&
-		chroot_add_mount /dev "$1/dev" --rbind &&
-		chroot_add_mount /data "$1/data" --rbind &&
-		chroot_add_mount /system "$1/system" --rbind &&
-		chroot_add_mount /storage "$1/storage" --rbind &&
-		chroot_add_mount /sdcard "$1/sdcard" --rbind &&
-		chroot_if_dir /apex /apex "$1/apex" --rbind &&
-		chroot_if_dir /linkerconfig /linkerconfig "$1/linkerconfig" --rbind &&
-		chroot_if_dir /debug_ramdisk /debug_ramdisk "$1/debug_ramdisk" --rbind &&
-		chroot_if_dir /system_ext /system_ext "$1/system_ext" --rbind &&
-		chroot_if_dir /product "$1/product" --rbind &&
-		chroot_if_dir /vendor "$1/vendor" --rbind &&
+		rbind_map dev &&
+		indir_map_data &&
+		rbind_map system &&
+		rbind_map storage &&
+		rbind_map sdcard &&
+		rbind_ifdir apex &&
+		rbind_ifdir data_mirror &&
+		rbind_ifdir linkerconfig &&
+		rbind_ifdir debug_ramdisk &&
+		rbind_ifdir system_ext &&
+		rbind_ifdir product &&
+		rbind_ifdir vendor &&
 		chroot_add_mount tmp "$1/tmp" -t tmpfs -o mode=1777,nodev,nosuid &&
 		chroot_add_mount / "$1/android" --bind &&
 		chroot_session "$1"

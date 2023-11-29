@@ -9,6 +9,7 @@ post_install() {
 		boot \
 		var/gearlock/overlay \
 		data \
+		data_mirror \
 		system \
 		storage \
 		sdcard \

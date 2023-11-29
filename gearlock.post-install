@@ -8,6 +8,7 @@ mkdir -p \
 	boot \
 	var/gearlock/overlay \
 	data \
+	data_mirror \
 	system \
 	storage \
 	sdcard \
