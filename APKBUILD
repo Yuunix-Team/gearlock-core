@@ -23,7 +23,7 @@ depends="
 	mdev-conf
 	"
 # subpackages="$pkgname-doc"
-install="$pkgname.pre-upgrade $pkgname.post-install $pkgname.post-upgrade"
+install="$pkgname.post-install"
 
 provides="initramfs-generator mkinitfs"
 provider_priority=900 # highest

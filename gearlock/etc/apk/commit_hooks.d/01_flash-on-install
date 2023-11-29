@@ -1,1 +1,17 @@
-#!/bin/bash
+#!/bin/sh
+
+case "$1" in
+pre-commit)
+	find /usr/share/gearlock/extensions/ -maxdepth 1 -iname "*.zip" >/tmp/x_counts
+	;;
+post-commit)
+	find /usr/share/gearlock/extensions/ -maxdepth 1 -iname "*.zip" >/tmp/newx_counts
+	new_xs=$(comm -13 /tmp/x_counts /tmp/newx_counts)
+	export IFS="
+"
+	for x in $new_xs; do
+		/usr/lib/gearlock/compat/flashablezip/install "$x"
+	done
+	unset IFS
+	;;
+esac

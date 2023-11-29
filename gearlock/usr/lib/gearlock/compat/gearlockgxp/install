@@ -24,3 +24,5 @@ esac
 	die "Failed to install '$FILE'" 1
 
 quit 0
+
+# TODO: make overlayfs

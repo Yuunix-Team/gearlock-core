@@ -2,7 +2,7 @@
 
 export PATH=/bin:/sbin:/usr/local/bin:/usr/bin:/usr/sbin
 
-mkdir -p android apex boot data gearroot gearload system vendor linkerconfig
+mkdir -p android apex boot data gearroot gearload system vendor linkerconfig var/gearlock/overlay
 
 echo 'localhost' > /etc/hostname
 

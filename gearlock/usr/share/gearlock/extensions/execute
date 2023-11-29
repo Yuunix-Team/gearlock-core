@@ -13,4 +13,3 @@ for gxp in "$GEARDATA"/extensions/*.gxp/; do
 done
 
 if [ "$1" ]; then "$GEARLIB"/sysup/unmount "$1" || exit 1; fi
-

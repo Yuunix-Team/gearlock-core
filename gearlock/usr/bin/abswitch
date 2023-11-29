@@ -19,18 +19,18 @@ esac
 MODE=$_
 
 [ "$MODE" = "$OLD_MODE" ] && [ "$MODE" = aonly ] &&
-  die "Your current system has already been '$MODE'"
+	die "Your current system has already been '$MODE'"
 
 SYSTEM=
 [ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
 
 case "$MODE" in
 ab)
-  if [ "$OLD_MODE" = ab ]; then
-	  MODEFILE=/var/gearlock/active
-	   [ -e $MODEFILE ] &&
-		   . $MODEFILE ||
-		   ACTIVE=a
+	if [ "$OLD_MODE" = ab ]; then
+		MODEFILE=/var/gearlock/active
+		[ -e $MODEFILE ] &&
+			. $MODEFILE ||
+			ACTIVE=a
 
 		case "$ACTIVE" in a) : b ;; b) : a ;; esac
 		ACTIVE=$_
@@ -38,15 +38,15 @@ ab)
 		# mv -f "$SRCDIR/system_$1$COMP" "$SRCDIR/system_$2$COMP"
 		echo "ACTIVE=$ACTIVE" >$MODEFILE
 		set-active-grub "$ACTIVE"
-  else
-    mv -f "$SRCDIR/system$COMP" "$SRCDIR/system_a$COMP"
-	touch "$SRCDIR/system_b$COMP"
-	update-grub
-  fi
-  ;;
+	else
+		mv -f "$SRCDIR/system$COMP" "$SRCDIR/system_a$COMP" &&
+			touch "$SRCDIR/system_b$COMP" &&
+			update-grub
+	fi
+	;;
 aonly)
-  mv -f "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
-    rm -rf "$SRCDIR"/system_*
-  ;;
+	mv -f "$SRCDIR/$SYSTEM" "$SRCDIR/system$COMP" &&
+		rm -rf "$SRCDIR"/system_*
+	;;
 esac
 [ $? = 0 ] || die "Failed to switch '$MODE'"

@@ -2,7 +2,6 @@
 
 die() { echo "$*" >&2 && exit "${2:-1}"; }
 
-# TODO :signature verification
 "$GEARLIB"/checksum "$1" "$2" ||
 	die "Signature verification failed" 2
 
