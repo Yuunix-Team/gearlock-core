@@ -114,7 +114,8 @@ cd "$TMPDIR"
 
 move() {
 	PKGDIR=$TMPDIR/$GEARDATA/extensions/
-	PKG=$PKGDIR/${id}.zip
+	ZIPNAME=${id}-$version-r$revision.zip
+	PKG=$PKGDIR/$ZIPNAME
 	mkdir -p "$PKGDIR"
 	mv "$FILE" "$PKG"
 }

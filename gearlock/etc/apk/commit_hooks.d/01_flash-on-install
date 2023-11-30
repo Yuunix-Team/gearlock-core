@@ -1,17 +1,30 @@
 #!/bin/sh
 
+xdir=/usr/share/gearlock/extensions/
 case "$1" in
 pre-commit)
-	find /usr/share/gearlock/extensions/ -maxdepth 1 -iname "*.zip" >/tmp/x_counts
+	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/x_cnts
+	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/g_cnts
 	;;
 post-commit)
-	find /usr/share/gearlock/extensions/ -maxdepth 1 -iname "*.zip" >/tmp/newx_counts
-	new_xs=$(comm -13 /tmp/x_counts /tmp/newx_counts)
+	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/newx_cnts
+	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/newg_cnts
+
+	new_xs=$(comm -13 /tmp/x_cnts /tmp/newx_cnts)
+	new_gs=$(comm -13 /tmp/g_cnts /tmp/newg_cnts)
+
 	export IFS="
 "
 	for x in $new_xs; do
 		/usr/lib/gearlock/compat/flashablezip/install "$x"
 	done
+	for g in $new_gs; do
+		/usr/lib/gearlock/compat/gearlockgxp/install "$g"
+	done
 	unset IFS
+
+	if [ "$new_xs" ] || [ "$new_gs" ]; then
+		mkinitfs -a
+	fi
 	;;
 esac

@@ -244,12 +244,12 @@ run_hookfunctions() {
 }
 
 fs_type() { blkol TYPE "$1"; }
+mount_loop() { mount -o loop,noatime "$1" "$2"; }
+mount_dir() { mount --bind "$1" "$2"; }
+syshook() { run_hookfunctions "run_syshook" $SYSHOOKS; }
 
 check_root() {
 	local device="$1" SYSTEMFS SYSTEM_BLK DATAFS DATA_BLK MOUNT SYSTEM_IMG
-
-	mount_loop() { mount -o loop,noatime "$1" "$2"; }
-	mount_dir() { mount --bind "$1" "$2"; }
 
 	err() {
 		cd /
@@ -273,6 +273,7 @@ check_root() {
 		*) mount -t "$SYSTEMFS" "$SYSTEM" android ;;
 		esac
 		[ $? != 0 ] || err "$SYSTEM" android
+		syshook
 		SYSTEM_BLK=true
 		;;
 	esac
@@ -334,6 +335,8 @@ check_root() {
 		mountpoint -q /mnt && umount /mnt
 		err "$SYSTEM" android
 	fi
+
+	syshook
 
 	cd /android
 	DATA_IMG=/mnt/$SRC/$DATA

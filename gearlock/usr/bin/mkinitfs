@@ -430,8 +430,8 @@ add_runscript() {
 
 	for fn in "${funcs[@]}"; do
 		case $fn in
-		run_earlyhook) add_runhook 'early' "$hookname" ;;
-		run_hook) add_runhook 'hooks' "$hookname" ;;
+		run_hook) add_runhook 'early' "$hookname" ;;
+		run_syshook) add_runhook 'sysmount' "$hookname" ;;
 		run_latehook) add_runhook 'late' "$hookname" ;;
 		esac
 	done
@@ -808,8 +808,8 @@ initfs_cpscripts() {
 		((${#add[*]})) && printf 'MODULES="%s"\n' "${add[*]}"
 
 		printf '%s="%s"\n' \
-			'EARLYHOOKS' "${_runhooks['early']# }" \
-			'HOOKS' "${_runhooks['hooks']# }" \
+			'EARLYHOOKS' "${_runhooks['hooks']# }" \
+			'SYSHOOKS' "${_runhooks['sysmount']# }" \
 			'LATEHOOKS' "${_runhooks['late']# }"
 	} >"$tmpdir/config"
 
@@ -1010,7 +1010,7 @@ basedir="${basedir%/}/"
 [[ -e /dev/fd ]] || die "/dev must be mounted!"
 
 # if [ -z "$nokernel" ]; then
-[ "$all" ] && kernels=("${basedir}lib/modules"/*) || kernels=("${basedir}lib/modules/$(uname -r)")
+[ "$all" ] && kernels=("${basedir}lib/modules"/*) || kernels=("${basedir}lib/modules/${kver:-"$(uname -r)"}")
 
 firmwaredir="${basedir}lib/firmware"
 

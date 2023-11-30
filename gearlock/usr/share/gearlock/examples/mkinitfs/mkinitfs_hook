@@ -5,6 +5,11 @@ run_hook() {
   export
 }
 
+# runs after mounting system
+run_syshook() {
+	export
+}
+
 # runs after everything, except switch root
 run_latehook() {
   export
