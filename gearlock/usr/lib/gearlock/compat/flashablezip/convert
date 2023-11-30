@@ -113,8 +113,9 @@ cd "$TMPDIR"
 # EOF
 
 move() {
-	PKGDIR=$TMPDIR/$GEARDATA/extensions
-	PKG=$PKGDIR/${id}.zip
+	PKGDIR=$TMPDIR/$GEARDATA/extensions/
+	ZIPNAME=$id-$version-r$revision.zip
+	PKG=$PKGDIR/$ZIPNAME
 	mkdir -p "$PKGDIR"
 	mv "$FILE" "$PKG"
 }
@@ -135,7 +136,7 @@ build:
 
 install:
 	install -dm755 \$(DESTDIR)/$PKGDIR
-	install -Dm755 $GEARDATA/extensions/${id}.zip \$(DESTDIR)/$PKG
+	install -Dm755 $GEARDATA/extensions/$ZIPNAME \$(DESTDIR)/$GEARDATA/extensions/
 "
 
 # rm -rf /root/packages/*/*/*.apk

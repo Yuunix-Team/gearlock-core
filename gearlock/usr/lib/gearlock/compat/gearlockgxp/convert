@@ -170,7 +170,8 @@ move() {
 
 	if [ ! "$IS_KRL" ] && [ ! "$IS_FW" ] && [ -d system ]; then
 		PKGDIR="$TMPDIR/var/gearlock/overlay"
-		PKG=$TMPDIR/$GEARDATA/extensions/legacy-${PKGNAME}.gxp
+		GXPNAME=legacy-$PKGNAME-$VERSION.gxp
+		PKG=$TMPDIR/$GEARDATA/extensions/$GXPNAME
 
 		mkdir -p "$PKG"
 

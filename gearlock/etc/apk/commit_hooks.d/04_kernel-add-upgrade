@@ -1,0 +1,16 @@
+#!/bin/sh
+
+case "$1" in
+pre-commit)
+	find /lib/modules -type d -maxdepth 1 >/tmp/x_counts
+	;;
+post-commit)
+	find /lib/modules -type d -maxdepth 1 >/tmp/newx_counts
+	new_xs=$(comm -13 /tmp/x_counts /tmp/newx_counts)
+	export IFS="                                                    "
+	for x in $new_xs; do
+		mkinitfs -K "$(basename "$x")"
+	done
+	unset IFS
+	;;
+esac

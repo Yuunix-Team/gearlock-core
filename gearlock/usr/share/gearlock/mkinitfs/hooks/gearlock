@@ -34,6 +34,10 @@ run_hook() {
 	[ "$MODE" = recovery ] && "$CHROOTCMD" pre
 }
 
+run_syshook() {
+	mount -t overlay overlay /android -o lowerdir=/gearlock/var/gearlock/overlay:/android
+}
+
 run_latehook() {
 	mount --bind "/gearlock/lib/modules" /android/system/lib/modules
 	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
@@ -51,6 +55,6 @@ run_latehook() {
 	# move mountpoint
 	target_mnt=/android/data/adb/gearlock
 	[ -e "$target_mnt" ] || mkdir -p "$target_mnt"
-	mount --move /gearlock "$target_mnt"
+	mount --bind /gearlock "$target_mnt"
 }
 
