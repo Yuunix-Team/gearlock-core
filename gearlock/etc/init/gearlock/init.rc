@@ -1,3 +1,0 @@
-on property:sys.boot_completed=1
-    exec - root root -- /system/bin/logwrapper /system/bin/sh /data/gearlock/bin/chroot-setup
-    exec - root root -- /system/bin/logwrapper /system/bin/toybox chroot /data/gearlock /bin/bash -c "/bin/pipe-setup &"

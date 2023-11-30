@@ -1,3 +1,0 @@
-# Must include prefix /data/gearlock
-
-import /data/gearlock/etc/init/gearlock/init.rc

@@ -5,7 +5,7 @@ export PATH=/system/bin:/system/xbin:/vendor/bin:/product/bin
 BOOTED=$(getprop sys.boot_completed)
 export BOOTED
 
-: "${CHROOTDIR:="/data/gearlock"}"
+: "${CHROOTDIR:="/data/adb/gearlock"}"
 
 die() { echo "==> ERROR: $1" >&2 && exit "${2:-1}"; }
 
@@ -13,7 +13,7 @@ chroot_add_mount() { mountpoint -q "$2" || mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
 
 chroot_teardown() {
-	[ "$(ls "$1"/tmp/session_* | wc -l)" = 1 ] &&
+	[ "$(ls "$1"/tmp/session_* | wc -l 2>/dev/null)" = 1 ] &&
 		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
 	rm "$1/tmp/session_$SESSION"
 }

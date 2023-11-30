@@ -1,0 +1,3 @@
+# Must include prefix /data/adb/gearlock
+
+import /data/adb/gearlock/etc/init/gearlock/00_init.rc

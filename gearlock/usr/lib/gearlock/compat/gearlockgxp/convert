@@ -193,12 +193,41 @@ move() {
 	if [ -d gearlock ]; then
 		if filter_cmd gearlock/extension.sh; then
 			GXTDIR="$TMPDIR/$(dirname "$GEARDATA")/gearlock-legacy/extensions/$NAME"
-			mkdir -p "$GXTDIR"
-			mv gearlock/extension.sh "$GXTDIR"/
+			mkdir -p "$GXTDIR/gearboot"
+			mv gearlock/extension.sh "$GXTDIR/"
 		fi
 		# TODO: filter up sample/placeholer boot stages, and make boot injection scripts
 		# gearlock/gearboot/init.sh to mkinitfs's late_hook
+		# skip overlay as we have our own overlay implementation
+
+		init_hook=gearlock/gearboot/init.sh
+		if [ -f "$init_hook" ] && filter_cmd "$init_hook"; then
+			hookdir=$TMPDIR/$GEARDATA/mkinitfs/hooks
+			mkdir -p "$hookdir"
+			echo -e "#!/bin/sh\nrun_latehook(){\n$(cat "$init_hook")\n}" "$hookdir/99-$PKGNAME"
+		fi
+
+		rc_dir=$TMPDIR/etc/init/gearlock
+		mkdir -p "$rc_dir"
+		for stage in post-fs post-fs-data boot-post boot-comp; do
+			case "$stage" in
+			boot-post) : boot ;;
+			boot-comp) : 'property:sys.boot_completed=1' ;;
+			*) : "$stage" ;;
+			esac
+			rstage=$_
+			file=gearlock/gearboot/${stage}.sh
+			if [ -f "$file" ] && filter_cmd "$file"; then
+				cp -f "$file" "$GXTDIR/gearboot"
+				echo -e "\non $rstage\n    exec - root root -- /system/bin/logwrapper /system/bin/sh '/data/adb/gearlock/$(dirname "$GEARDATA")/gearlock-legacy/extensions/$NAME/$stage.sh'" >>"$rc_dir/99-${PKGNAME}.rc"
+			fi
+		done
 	fi
+
+	check_rm() { [ "$(du -sk "$TMPDIR/$1" | awk '{print $1}')" = 0 ] && rm -rf "$TMPDIR/$1"; }
+
+	check_rm var
+	check_rm etc
 }
 
 "$GEARLIB"/makepkg/genbuild \
@@ -209,6 +238,14 @@ move() {
 	-d "gearlock-core" \
 	-v "$VERSION" \
 	-S "$(du -sk . | awk '{print $1}')" \
-	-B "$MAKEFILE"
+	-B "
+build:
+	echo 'Creating package...'
+
+install:
+	cp -a usr \$(DESTDIR)/
+	[ -d var ] && cp -a var \$(DESTDIR)/
+	[ -d etc ] && cp -a etc \$(DESTDIR)/
+"
 
 quit 0

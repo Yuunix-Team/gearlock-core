@@ -8,5 +8,5 @@ image to `/gearlock` and then bind mount `/mnt` to `/gearlock/gearroot`, then ru
 `gearload` folder.
 
 Afer finnish installing all packages, `/gearlock` then be bind mounted to
-`/data/gearlock`, the `gearload` folder then be chmod\'d read-write, then the system
+`/data/adb/gearlock`, the `gearload` folder then be chmod\'d read-write, then the system
 continues booting normally.

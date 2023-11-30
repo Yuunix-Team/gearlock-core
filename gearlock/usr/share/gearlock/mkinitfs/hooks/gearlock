@@ -45,11 +45,11 @@ run_latehook() {
 	initrc=/android/system/etc/init/hw/init.rc
 	new_initrc=/gearlock/var/gearlock/init.rc
 	[ -f "$new_initrc" ] ||
-		sed -r 's|(^import /init.\$\{ro.hardware\}.rc)|\1\nimport /data/gearlock/etc/init/gearlock/sources.rc|' "$initrc" > "$new_initrc"
+	sed -r 's|(^import /init.\$\{ro.hardware\}.rc)|\1\nimport /data/adb/gearlock/etc/init/sources.rc|' "$initrc" > "$new_initrc"
 	mount --bind "$new_initrc" "$initrc"
 
 	# move mountpoint
-	target_mnt=/android/data/gearlock
+	target_mnt=/android/data/adb/gearlock
 	[ -e "$target_mnt" ] || mkdir -p "$target_mnt"
 	mount --move /gearlock "$target_mnt"
 }
