@@ -25,9 +25,9 @@ install="$pkgname.install"
 
 do_build() {
 	git submodule update --init
-	make VERSION=$pkgver-$revision DEBUG=$DEBUG
+	./build.sh void
 }
 
 do_install() {
-	make install DESTDIR="$DESTDIR"
+	mv -t "$DESTDIR" build/*
 }

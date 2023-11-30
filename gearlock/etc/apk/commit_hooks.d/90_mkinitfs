@@ -1,0 +1,34 @@
+#!/bin/sh
+
+case "$1" in
+pre-commit)
+	find /lib/modules -type d -maxdepth 1 >/tmp/k_counts
+	;;
+post-commit)
+	find /lib/modules -type d -maxdepth 1 >/tmp/newk_counts
+	new_xs=$(comm -13 /tmp/k_counts /tmp/newk_counts)
+	old_xs=$(comm -12 /tmp/k_counts /tmp/newk_counts)
+
+remove_kernel() {
+	filelist=("/boot/vmlinuz-${1}"
+		"/boot/initrd-${1}.img"
+		"/efi/EFI/Android/vmlinuz-${1}.efi")
+
+	# access all the files to trigger any potential automounts
+	stat -- /boot/ /efi/ "${filelist[@]}" &>/dev/null
+
+	# remove the actual kernel and images for the package being removed
+	rm -f -- "${filelist[@]}"
+}
+
+	export IFS="
+"
+	for k in $new_xs; do
+		mkinitfs -K "$(basename "$k")"
+	done
+	for k in $old_xs; do
+		remove_kernel "$k"
+	done
+	unset IFS
+	;;
+esac

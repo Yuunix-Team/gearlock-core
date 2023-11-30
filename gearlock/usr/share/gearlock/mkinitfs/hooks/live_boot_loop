@@ -1,8 +1,8 @@
 #!/bin/sh
 
-live_loop_mount_handler() {
+live_loop_system_mount_handler() {
 	# in live mode, SRC, SYSTEM, DATA, GEARLOCK are ignored
-	export SRC='' SYSTEM=system.img DATA='' GEARLOCK=gearlock.img
+	export SRC='' SYSTEM=system.img GEARLOCK=gearlock.img
 
 	local remount_limit=0 disktmp
 	while [ ! "$ISO_DEV" ] && [ "$remount_limit" -le 5 ]; do
@@ -34,9 +34,13 @@ live_loop_mount_handler() {
 	esac
 
 	$MOUNT ${FLAGS:+-o $FLAGS} ${FS:+-t $FS} "$ISO_DEV" /iso
-	check_root "/iso/$ISO"
+	system_mount_handler "/iso/$ISO"
 }
 
+empty_data() { mount -t tmpfs tmpfs /android/data; }
+
 run_hook() {
-	[ "$ISO" ] && export mount_handler="live_loop_mount_handler"
+	[ "$ISO" ] || return
+	export system_mount_handler="live_loop_system_mount_handler"
+	export data_mount_handler=empty_data
 }

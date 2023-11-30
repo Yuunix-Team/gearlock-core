@@ -24,9 +24,9 @@ install="$pkgname.install"
 
 build() {
 	git submodule update --init
-	make VERSION=$pkgver-$pkgrel DEBUG=$DEBUG
+	./build.sh arch
 }
 
 package() {
-	make install DESTDIR="$pkgdir"
+	mv -t "$pkgdir" build/*
 }

@@ -1,0 +1,20 @@
+[Trigger]
+Type = Path
+Operation = Remove
+Target = usr/lib/modules/*/vmlinuz
+
+[Trigger]
+Type = Package
+Operation = Remove
+Target = gearlock
+Target = gearlock-bin
+Target = gearlock-git
+Target = gearlock-rust
+Target = gearlock-rust-bin
+Target = gearlock-rust-git
+
+[Action]
+Description = Removing linux initcpios...
+When = PreTransaction
+Exec = /usr/share/libalpm/scripts/mkinitfs remove
+NeedsTargets

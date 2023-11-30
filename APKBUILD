@@ -30,9 +30,9 @@ provider_priority=900 # highest
 
 build() {
 	git submodule update --init
-	make VERSION=$pkgver-r$pkgrel DEBUG=$DEBUG
+	./build.sh alpine
 }
 
 package() {
-	make install DESTDIR="$pkgdir"
+	mv -t "$pkgdir" build/*
 }
