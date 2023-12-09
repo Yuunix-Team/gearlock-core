@@ -42,7 +42,7 @@ run_latehook() {
 	mount --bind "/gearlock/lib/modules" /android/system/lib/modules
 	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
 
-	[ -e /gearlock/var/gearlock/initialized ] ||
+	[ -e "/gearlock/var/gearlock/initialized" ] ||
 		"$CHROOTCMD" /usr/share/gearlock/first-interation.sh
 
 	# boot stage injection 

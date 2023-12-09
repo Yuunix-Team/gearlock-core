@@ -5,3 +5,5 @@ post-commit)
 	printf "\nimport /data/adb/gearlock%s\n" /etc/init/gearlock/*.rc > /etc/init/sources.rc
 	;;
 esac
+
+exit 0

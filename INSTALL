@@ -1,0 +1,29 @@
+#!/bin/bash
+case "$ACTION" in
+post)
+
+export PATH=/bin:/sbin:/usr/local/bin:/usr/bin:/usr/sbin
+
+cd /
+mkdir -p \
+	android \
+	boot \
+	var/gearlock/overlay \
+	data \
+	data_mirror \
+	system \
+	storage \
+	sdcard \
+	apex \
+	linkerconfig \
+	debug_ramdisk \
+	system_ext \
+	product \
+	vendor
+
+echo "localhost" >/etc/hostname
+
+gpg --batch --passphrase "" --quick-gen-key "root@localhost" default default
+
+;;
+esac

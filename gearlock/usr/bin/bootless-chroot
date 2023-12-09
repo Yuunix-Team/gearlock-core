@@ -11,9 +11,9 @@ chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
 chroot_prehook() { [ "$PREHOOK" ] || $@; }
 
 chroot_teardown() {
-	[ "$(ls "$1"/tmp/session_* | wc -l)" = 1 ] &&
+	[ "$(ls "$1"/tmp/session_* 2>/dev/null | wc -l)" = 1 ] &&
 		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
-	rm "$1/tmp/session_$SESSION"
+	[ -f "$1/tmp/session_$i" ] && rm "$1/tmp/session_$SESSION"
 }
 
 chroot_session() {
@@ -24,7 +24,7 @@ chroot_session() {
 }
 
 chroot_setup() {
-	trap 'chroot_teardown' EXIT
+	trap 'chroot_teardown '"$1" EXIT
 
 	chroot_add_mount proc "$1/proc" -t proc -o nosuid,noexec,nodev &&
 		chroot_add_mount sys "$1/sys" -t sysfs -o nosuid,noexec,nodev,ro &&

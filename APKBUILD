@@ -21,6 +21,7 @@ depends="
 	gnupg
 	kmod
 	mdev-conf
+	abuild
 	"
 # subpackages="$pkgname-doc"
 install="$pkgname.post-install"
@@ -34,5 +35,6 @@ build() {
 }
 
 package() {
+	mkdir -p "$pkgdir"
 	mv -t "$pkgdir" build/*
 }

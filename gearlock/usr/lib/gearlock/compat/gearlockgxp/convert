@@ -38,7 +38,7 @@ FILE=$1
 
 if [ ! "$TYPE" ]; then
 	for cmd in pacman xbps-src dpkg apk; do
-		command -v $cmd || continue
+		which $cmd || continue
 		case "$cmd" in
 		pacman) : "PKGBUILD" ;;
 		xbps-src) : "XBPS" ;;
@@ -125,19 +125,21 @@ install:
 "
 }
 
+export -f bindpkg
+
 if [ -d system ]; then
 	if [ -d system/lib/modules ]; then
 		IS_KRL=true
 		kernel=$(basename ./system/lib/modules/*)
 		# shellcheck disable=2317
 		move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
+		export -f move
 		"$GEARLIB"/makepkg/genbuild \
 			-A "$ARCH" \
 			-D "${SHORTDESC:-"Linux kernel $kernel - GearLock GXP package by $AUTHOR"}" \
 			-l "GPL2" \
-			-M "$AUTHOR" \
+			-M "$AUTHOR <root@127.0.0.1>" \
 			-N "linux-$kernel" \
-			-O "$TMPDIR" \
 			-v "${kernel%-*}" \
 			-S "$(du -sk system/lib/modules | awk '{print $1}')" \
 			-B "$MAKEFILE" &&
@@ -148,13 +150,13 @@ if [ -d system ]; then
 		IS_FW=true
 		# shellcheck disable=2317
 		move() { bindpkg firmware; }
+		export -f move
 		"$GEARLIB"/makepkg/genbuild \
 			-A "$ARCH" \
 			-D "${SHORTDESC:-"Linux firmware - GearLock GXP package by $AUTHOR"}" \
 			-l "GPL2 GPL3 custom" \
-			-M "$AUTHOR" \
+			-M "$AUTHOR <root@127.0.0.1>" \
 			-N "linux-firmware" \
-			-O "$TMPDIR" \
 			-v "$(printf "%s" "$CONTENT" | grep -E "system/lib/firmware$" | sed 's/^([0-9]{4})-([0-9]{2})-([0-9]{2}).*/\1\2\3/g')" \
 			-S "$(du -sk system/lib/firmware | awk '{print $1}')" \
 			-B "$MAKEFILE" &&
@@ -231,11 +233,12 @@ move() {
 	check_rm etc
 }
 
+export -f move
 "$GEARLIB"/makepkg/genbuild \
 	-A "$ARCH" \
 	-D "${SHORTDESC:-"$NAME - GearLock GXP package by $AUTHOR"}" \
 	-N "gearlockgxp-$PKGNAME" \
-	-M "$AUTHOR" \
+	-M "$AUTHOR <root@127.0.0.1>" \
 	-d "gearlock-core" \
 	-v "$VERSION" \
 	-S "$(du -sk . | awk '{print $1}')" \

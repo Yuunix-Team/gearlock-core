@@ -2,7 +2,7 @@
 
 storage_free() {
 	if [ ! "$1" ] || [ -d "$1" ]; then
-		df -k --sync --output=avail "${1:-$TMPDIR}"
+		df -k "${1:-"$(dirname "$TMPDIR")"}" | awk '{print $4}' | tail -1
 	elif [ -b "$1" ]; then
 		echo "$(($(blockdev --getsz "$1") / 2))"
 	else

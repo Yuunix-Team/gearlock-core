@@ -934,7 +934,7 @@ initfs_cpscripts() {
 
 # cmd_exists() {
 # 	local cmd="$1"
-# 	if ! command -v "$cmd" >/dev/null 2>&1; then
+# 	if ! which "$cmd" >/dev/null 2>&1; then
 # 		echo "Command \"$cmd\" is not available."
 # 		exit 1
 # 	fi
@@ -969,7 +969,7 @@ EOF
 # main
 # features_dirs=${features_dir:-"${basedir%/:-}/${SYSCONFDIR#/}/features.d"}
 
-while getopts "Aa:c:hK:kLm:no:qr:S:t:z:" opt; do
+while getopts "A:ac:hK:kLm:no:qr:S:t:z:" opt; do
 	case "$opt" in
 	A) HOOKS="$HOOKS ${OPTARG//,/ }" ;;
 	a) all=1 ;;
@@ -978,11 +978,11 @@ while getopts "Aa:c:hK:kLm:no:qr:S:t:z:" opt; do
 	k) keeptmp=1 ;;
 	K) kver=$OPTARG ;;
 	L) list_hooks ;;
+	S) HOOKS="${HOOKS//$OPTARG/}" ;;
 	m) DATADIR=$OPTARG ;;
 	o) outfile=$OPTARG ;;
 	q) quiet=1 ;;
 	r) basedir=$OPTARG ;;
-	S) HOOKS="${HOOKS//$OPTARG/}" ;;
 	t) tmpdir="$OPTARG" ;;
 	z) COMPRESSION="$OPTARG" ;;
 	*) usage && exit 1 ;;
@@ -1058,7 +1058,7 @@ for kerneldir in "${kernels[@]}"; do
 	MODULES_DECOMPRESS="${MODULES_DECOMPRESS:-"yes"}"
 
 	# case "$COMPRESSION" in
-	# gzip) comp="$(command -v pigz 2>/dev/null || echo gzip) -9" ;;
+	# gzip) comp="$(which pigz 2>/dev/null || echo gzip) -9" ;;
 	# xz)
 	# 	cmd_exists xz
 	# 	comp="xz -C crc32 -T 0"

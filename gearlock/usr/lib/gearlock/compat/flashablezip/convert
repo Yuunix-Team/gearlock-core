@@ -59,7 +59,7 @@ FILE=$1
 
 if [ ! "$TYPE" ]; then
 	for cmd in pacman xbps-src dpkg apk; do
-		command -v $cmd || continue
+		which $cmd || continue
 		case "$cmd" in
 		pacman) : "PKGBUILD" ;;
 		xbps-src) : "XBPS" ;;
@@ -119,6 +119,7 @@ move() {
 	mkdir -p "$PKGDIR"
 	mv "$FILE" "$PKG"
 }
+export -f move
 
 "$GEARLIB"/makepkg/genbuild \
 	-A "$arch" \

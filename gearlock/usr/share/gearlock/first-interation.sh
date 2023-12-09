@@ -34,36 +34,55 @@ for ver in $buildver; do
 done
 unset IFS
 
-rm -rf /root/packages/*/*/*.apk
+fld_size() { du -sk "/system/lib/$1" | awk '{print $1}'; }
+bindpkg() {
+	TYPE=$1
+	mkdir -p "$TMPDIR/usr/lib/$TYPE"
+	cp -a "system/lib/$TYPE" "$TMPDIR/$(dirname "usr/lib/$TYPE")/$(basename "$TYPE")"
 
-kernel=$(uname -r)
-"$GEARLIB"/makepkg/bindpkg \
-	modules/"$kernel" \
-	"/boot/$BOOT_IMAGE" "$SRCDIR/$BOOT_IMAGE" \
+	case "$TYPE" in
+	modules/*) for kernel in "$@"; do
+		shift
+		[ -f "$kernel" ] && cp "$kernel" "$TMPDIR/usr/lib/$1/kernel" && break
+	done ;;
+	esac
+
+	MAKEFILE="
+build:
+	echo 'Creating package...'
+
+install:
+	cp -a /usr \$(DESTDIR)/
+"
+}
+
+export -f bindpkg
+
+move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
+export -f move
+kernel=$(basename /system/lib/modules/*)
+"$GEARLIB"/makepkg/genbuild \
 	-A "$ARCH" \
 	-D "Linux kernel $kernel - $OS" \
 	-l "GPL2" \
-	-M "$OS" \
+	-M "$OS <root@127.0.0.1>" \
 	-N "linux-$kernel" \
-	-O "$TMPDIR" \
-	-v "${kernel%-*}"
+	-v "${kernel%%-*}" \
+	-S "$(fld_size modules)" \
+	-B "$MAKEFILE"
 
-"$GEARLIB"/makepkg/bindpkg \
+move() { bindpkg firmware; }
+export -f move
+"$GEARLIB"/makepkg/genbuild \
 	firmware \
 	-A "$ARCH" \
 	-D "Linux firmware - $OS" \
 	-l "GPL2 GPL3 custom" \
-	-M "$OS" \
+	-M "$OS <root@127.0.0.1>" \
 	-N "linux-firmware" \
-	-O "$TMPDIR" \
-	-v "$(date -d "@$(bprop "date.utc")" "+%Y%m%d.${OS// /_}")"
-
-apk add /gearload/*.apk /root/packages/*/*/*.apk
-rm -rf /root/packages/*/*/*.apk
-
-# for safety, don't
-# rm -rf /system/lib/modules /system/lib/firmware &&
-# 	mkdir -p /system/lib/modules /system/lib/firmware
+	-v "$(date -d "@$(bprop "date.utc")" "+%Y%m%d.${OS// /_}")" \
+	-S "$(fld_size firmware)" \
+	-B "$MAKEFILE"
 
 mkdir -p /var/gearlock
 touch /var/gearlock/initialized

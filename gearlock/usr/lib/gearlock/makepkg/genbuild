@@ -1,6 +1,6 @@
 #!/bin/bash
 
-die() { echo "==> ERROR: $TYPE" >&2 && quit "${2:-1}"; }
+die() { echo "==> ERROR: $1" >&2 && quit "${2:-1}"; }
 
 quit() {
 	cd "$CURRENT_DIR"
@@ -12,13 +12,13 @@ usage() {
 	echo
 }
 
-while getopts "A:B:D:d:hI:l:M:m:o:P:p:r:S:s:u:v:t:" opt; do
+while getopts "A:B:D:d:hl:M:m:N:o:P:p:r:S:s:u:v:t:" opt; do
 	case "$opt" in
 	A) ARCH="$OPTARG" ;;
 	B) MAKEFILE="$OPTARG" ;;
 	D) DESC="$OPTARG" ;;
-	I) NAME=$OPTARG ;;
 	M) MAINTAINER="$OPTARG" ;;
+	N) NAME=$OPTARG ;;
 	# O) OUT=$OPTARG ;;
 	P) PROVIDE_PRIOR="$OPTARG" ;;
 	d) DEPENDS="${OPTARG//,/ }" ;;
@@ -45,6 +45,7 @@ done
 PKGTYPE=${PKGTYPE:-"$OSPKGTYPE"}
 VER=${VER:-"0.0.1"}
 REL=${REL:-"0"}
+URL=${URL:-"https://android-x86.org/"}
 # OUT=${OUT:-"/dev/stdout"}
 
 TMPDIR=$("$GEARLIB"/checkfree "$NEEDED_SPACE") ||
@@ -66,7 +67,7 @@ pkgname=$NAME
 pkgver=$VER
 pkgrel=$REL
 pkgdesc="$DESC"
-${URL:+"url=\"$URL\""}
+url="$URL"
 arch="$ARCH"
 license="$LICENSE"
 ${OPTS:+"options=\"$OPTS\""}
@@ -126,6 +127,4 @@ DEBIAN) dpkg-buildpackage && dpkg -i ;;       #
 esac ||
 	die "Build package failed" 2
 
-cd "$CURRENT_DIR"
-
-rm -rf "$TMPDIR"
+quit 0

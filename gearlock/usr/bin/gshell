@@ -46,17 +46,18 @@ GEARLOCK=$(parse_devblock "$GEARLOCK")
 # Misc
 dns='8.8.8.8'
 
-for cmd in pacman xbps-src dpkg apk; do
-	command -v $cmd || continue
-	case "$cmd" in
-	pacman) : "PKGBUILD" ;;
-	xbps-src) : "XBPS" ;;
-	dpkg) : "DEBIAN" ;;
-	apk) : "APKBUILD" ;;
-	esac
-	OSPKGTYPE=$_
-	break
-done
+OSPKGTYPE=$(
+	for cmd in pacman xbps-src dpkg apk; do
+		which $cmd >/dev/null 2>&1 || continue
+		case "$cmd" in
+		pacman) echo "PKGBUILD" ;;
+		xbps-src) echo "XBPS" ;;
+		dpkg) echo "DEBIAN" ;;
+		apk) echo "APKBUILD" ;;
+		esac
+		break
+	done
+)
 
 # source config
 . "${CONFIG:="/etc/gearlock.conf"}"

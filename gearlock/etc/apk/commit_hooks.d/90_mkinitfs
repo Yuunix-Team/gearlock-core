@@ -10,15 +10,13 @@ post-commit)
 	old_xs=$(comm -12 /tmp/k_counts /tmp/newk_counts)
 
 remove_kernel() {
-	filelist=("/boot/vmlinuz-${1}"
-		"/boot/initrd-${1}.img"
-		"/efi/EFI/Android/vmlinuz-${1}.efi")
+	filelist="/boot/vmlinuz-${1} /boot/initrd-${1}.img /efi/EFI/Android/vmlinuz-${1}.efi"
 
 	# access all the files to trigger any potential automounts
-	stat -- /boot/ /efi/ "${filelist[@]}" &>/dev/null
+	stat -- /boot/ /efi/ $filelist &>/dev/null
 
 	# remove the actual kernel and images for the package being removed
-	rm -f -- "${filelist[@]}"
+	rm -f -- "$filelist"
 }
 
 	export IFS="
@@ -32,3 +30,5 @@ remove_kernel() {
 	unset IFS
 	;;
 esac
+
+exit 0

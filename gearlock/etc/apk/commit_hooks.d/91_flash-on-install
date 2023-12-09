@@ -28,3 +28,5 @@ post-commit)
 	fi
 	;;
 esac
+
+exit 0

@@ -43,7 +43,7 @@ fsresize)
 		mkdir -p "$disktmp" || true
 		mount -o ro,force "$DISK" "$disktmp" 2>/dev/null ||
 			die "Failed to check filesystem space availablity of '$DISK'" 3
-		MINSIZE=$(df -k --sync --output=used "$disktmp")
+		MINSIZE=$(df -k "$disktmp" | awk '{print $3}' | tail -1)
 		umount "$disktmp"
 		;;
 	esac

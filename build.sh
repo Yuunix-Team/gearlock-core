@@ -7,7 +7,7 @@ declare -A DIST_EXCLUDE=(["alpine"]="etc/apk" ["arch"]="usr/share/libalpm" ["voi
 
 EXCLUDES=""
 for dist in "${!DIST_EXCLUDE[@]}"; do
-	{ [ ! "${DIST_EXCLUDE["$dist"]}" ] || [ "${DIST_EXCLUDE["$dist"]}" = "$DISTRO" ]; } && continue
+	{ [ ! "${DIST_EXCLUDE["$dist"]}" ] || [ "$dist" = "$DISTRO" ]; } && continue
 	EXCLUDES="$EXCLUDES|${DIST_EXCLUDE["$dist"]}"
 done
 EXCLUDES=${EXCLUDES#|}
@@ -73,7 +73,7 @@ alpine)
 	cat <<EOF >gearlock.post-install
 #!/bin/bash
 $postins
-abuild-keygen --append
+su root -c "abuild-keygen -qan"
 EOF
 	;;
 arch)

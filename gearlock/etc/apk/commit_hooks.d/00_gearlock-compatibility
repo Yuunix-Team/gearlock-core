@@ -3,25 +3,16 @@
 FAKEDB=/var/gearlock/alpine
 
 OLD_PATH=$PATH
-OLD_LD=$LD_LIBRARY_PATH
-export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin \
-	LD_LIBRARY_PATH=/lib:/usr/lib:$FAKEDB/lib
+export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
 
-/bin/busybox cp /bin/busybox /usr/bin/
+/bin/busybox cp -f /bin/busybox /usr/bin/ 2>/dev/null
 /usr/bin/busybox --install -s /usr/bin
 
 busybox mkdir -p $FAKEDB
 
-if [ ! -d "$FAKEDB/lib" ]; then
-	busybox mkdir -p $FAKEDB/lib
-	for so in /lib/* /usr/lib/*; do
-		[ -e "$so" ] || [ -h "$so" ] || continue
-		so_bn=$(busybox basename "$so")
-		[ -e "$FAKEDB/lib/$so_bn" ] && continue
-		[ ! -e "/lib/$so_bn" ] || [ -h "/lib/$so_bn" ] || cp -rf "/lib/$so_bn" /usr/lib
-		busybox ln -s "/usr/lib/$so_bn" $FAKEDB/lib/
-	done
-fi
+LIBC=$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
+LIBC=${LIBC:-"$(busybox find /lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)"}
+LIBC="/usr/lib/$(basename "$LIBC")"
 
 case "$1" in
 pre-commit)
@@ -30,8 +21,13 @@ pre-commit)
 	busybox unlink /usr/sbin
 	busybox mkdir -p /bin /sbin /usr/sbin
 
+	busybox mkdir -p $FAKEDB/lib
+	for so in /usr/lib/*; do
+		busybox ln -s "/usr/lib/$(busybox basename "$so")" $FAKEDB/lib/
+	done
+
 	busybox unlink /lib
-	busybox mv $FAKEDB/lib /lib
+	$LIBC /usr/bin/busybox mv $FAKEDB/lib /lib
 	;;
 post-commit)
 	for exe in /bin/* /sbin/* /usr/sbin/*; do
@@ -51,17 +47,16 @@ post-commit)
 		[ -e "$so" ] || continue
 		so_bn=$(busybox basename "$so")
 		if [ -h "/usr/lib/$so_bn" ] || [ ! -e "/usr/lib/$so_bn" ]; then
-			busybox mv -f "$so" /usr/lib/
-			busybox ln -s "/usr/lib/$so_bn" /lib/
+			busybox cp -a "$so" /usr/lib/
 		fi
 	done
 
-	LIBC=$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
-	busybox mv /lib $FAKEDB/lib
+	busybox rm -rf /lib
 	$LIBC /usr/bin/busybox ln -s usr/lib /lib
 
 	busybox sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
 	;;
 esac
 
-export PATH=$OLD_PATH LD_LIBRARY_PATH=$OLD_LD
+export PATH=$OLD_PATH
+exit 0

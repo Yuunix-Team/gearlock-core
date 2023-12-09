@@ -1,0 +1,7 @@
+#!/system/bin/sh
+
+: "${CHROOTDIR:="/data/adb/gearlock"}"
+. "$CHROOTDIR"/bin/chroot-setup
+
+trap 'chroot_teardown '"$CHROOTDIR" EXIT
+SHELL=/system/bin/sh chroot "$CHROOTDIR" /bin/gshell -c "$@"

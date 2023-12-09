@@ -13,9 +13,9 @@ chroot_add_mount() { mountpoint -q "$2" || mount $@; }
 chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
 
 chroot_teardown() {
-	[ "$(ls "$1"/tmp/session_* | wc -l 2>/dev/null)" = 1 ] &&
+	[ "$(ls "$1"/tmp/session_* 2>/dev/null | wc -l)" = 1 ] &&
 		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
-	rm "$1/tmp/session_$SESSION"
+	[ -f "$1/tmp/session_$i" ] && rm "$1/tmp/session_$SESSION"
 }
 
 chroot_session() {
@@ -26,17 +26,14 @@ chroot_session() {
 }
 
 chroot_setup() {
-	trap 'chroot_teardown' EXIT
-
 	TG=$1
 	rbind_map() { chroot_add_mount "/$1" "$TG/$1" --rbind; }
 	rbind_ifdir() { chroot_if_dir "$1" "$1" "$TG/$1" --rbind; }
 
 	indir_map_data() {
-		for d in /data/*; do
-			[ "$d" = /data/adb ] && continue
-			mkdir -p "$TG/$d"
-			rbind_map "$d"
+		chroot_add_mount "/data" "$TG/data" --bind
+		for d in /data/*/; do
+			mountpoint -q "$d" && rbind_map "$d"
 		done
 	}
 
@@ -63,4 +60,3 @@ chroot_setup() {
 [ "$USER" = "root" ] || die "This script must be ran with root. Please try again using 'su -c ${0##*/}'"
 
 chroot_setup "$CHROOTDIR" || die "Failed to setup chroot $CHROOTDIR"
-

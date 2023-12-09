@@ -8,25 +8,26 @@ pkgrel=1
 pkgdesc="GearLock recovery project for Android on PC"
 url="https://github.com/Yuunix-Team/gearlock-core.git"
 arch=('any')
-license="GPL-2.0-only"
+license=("GPL-2.0-only")
 # currently we do not ship any testsuite
 # options="!check"
 depends=('busybox' 'bash' 'gnupg' 'kmod')
-makedepends_host="bash busybox git"
-[ "${DEBUG#0}" ] || makedepends_host="$makedepends_host shfmt"
-makedepends="$makedepends_host"
-# subpackages="$pkgname-doc"
+makedepends=('bash' 'busybox' 'git')
+[ "${DEBUG#0}" ] || makedepends+=('shfmt')
 install="$pkgname.install"
+provides=('initramfs-generator' 'mkinitcpio')
+# subpackages="$pkgname-doc"
 
 # provides="initramfs-generator mkinitfs"
 # provider_priority=900 # highest
 # sha512sums=()
 
-build() {
+prepare() {
 	git submodule update --init
+	cd ..
 	./build.sh arch
 }
 
 package() {
-	mv -t "$pkgdir" build/*
+	mv -t "$pkgdir" ../build/*
 }

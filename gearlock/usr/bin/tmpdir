@@ -8,6 +8,7 @@ if ! {
   TMPDIR=/data/local/tmp
 fi
 
-TMPDIR="$TMPDIR/gearlock.$(tr -dc A-Za-z0-9 </dev/urandom | head -c 13)"
+TMPDIR="$TMPDIR/gearlock.$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8)"
 
+mkdir -p "$TMPDIR"
 printf "%s" "$TMPDIR"

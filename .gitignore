@@ -2,7 +2,5 @@
 /pkg
 /build
 /src
-INSTALL
-gearlock.install
-gearlock.post-install
 Makefile
+*.pkg.tar*
