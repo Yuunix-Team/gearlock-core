@@ -79,7 +79,7 @@ ${PROVIDE_PRIOR:+"provider_priority=\"$PROVIDE_PRIOR\""}
 ${SCRIPTS:+"install=\"$SCRIPTS\""}
 
 check() {
-	echo test passed
+	make check
 }
 
 build() {

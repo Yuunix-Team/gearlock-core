@@ -70,7 +70,7 @@ if [ "$(ls -A /system/lib/modules)" ]; then
 		-l "GPL2" \
 		-M "$OS <root@127.0.0.1>" \
 		-N "linux-$kernel" \
-		-o "!strip !tracedeps" \
+		-o "!strip !tracedeps !check" \
 		-v "${kernel%%-*}" \
 		-S "$(fld_size modules)" \
 		-B "$MAKEFILE"
@@ -85,7 +85,7 @@ if [ "$(ls -A /system/lib/firmware)" ]; then
 		-l "GPL2 GPL3 custom" \
 		-M "$OS <root@127.0.0.1>" \
 		-N "linux-firmware" \
-		-o "!strip !tracedeps" \
+		-o "!strip !tracedeps !check" \
 		-v "$(date -d "@$(bprop "date.utc")" "+%Y%m%d")" \
 		-S "$(fld_size firmware)" \
 		-B "$MAKEFILE"

@@ -126,6 +126,7 @@ export -f move
 	-D "$description" \
 	-N "flashablezip-$id" \
 	-M "$author" \
+	-o "!strip !tracedeps !check" \
 	-d "gearlock-core" \
 	-r "$revision" \
 	-u "$updateJson" \

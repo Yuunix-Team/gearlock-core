@@ -30,10 +30,6 @@ install="$pkgname.post-install"
 provides="initramfs-generator mkinitfs"
 provider_priority=900 # highest
 
-check() {
-	echo test passed
-}
-
 build() {
 	git submodule update --init
 	./build.sh alpine
