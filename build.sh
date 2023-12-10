@@ -74,6 +74,7 @@ alpine)
 #!/bin/bash
 $postins
 su root -c "abuild-keygen -qan"
+[ -f "/bin/busybox" ] && [ ! -h "/bin/busybox" ] && cp -t /usr/bin -f /bin/busybox
 EOF
 	;;
 arch)

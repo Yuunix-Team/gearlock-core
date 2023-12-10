@@ -1,17 +1,22 @@
-#!/bin/sh
+#!/usr/bin/busybox sh
+
+export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
 
 xdir=/usr/share/gearlock/extensions/
+
+[ "$(ls -A "$xdir")" ] || exit 0
+
 case "$1" in
 pre-commit)
-	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/x_cnts
-	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/g_cnts
+	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/x_cnts || :
+	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/g_cnts || :
 	;;
 post-commit)
-	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/newx_cnts
-	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/newg_cnts
+	find "$xdir" -maxdepth 1 -iname "*.zip" -type f >/tmp/newx_cnts || :
+	find "$xdir" -maxdepth 1 -iname "*.gxp" -type d >/tmp/newg_cnts || :
 
-	new_xs=$(comm -13 /tmp/x_cnts /tmp/newx_cnts)
-	new_gs=$(comm -13 /tmp/g_cnts /tmp/newg_cnts)
+	new_xs=$(comm -13 /tmp/x_cnts /tmp/newx_cnts) || :
+	new_gs=$(comm -13 /tmp/g_cnts /tmp/newg_cnts) || :
 
 	export IFS="
 "

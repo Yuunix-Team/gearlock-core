@@ -1,18 +1,16 @@
-#!/bin/sh
+#!/usr/bin/busybox sh
 
 FAKEDB=/var/gearlock/alpine
 
 OLD_PATH=$PATH
 export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
 
-/bin/busybox cp -f /bin/busybox /usr/bin/ 2>/dev/null
 /usr/bin/busybox --install -s /usr/bin
 
-busybox mkdir -p $FAKEDB
-
-LIBC=$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
-LIBC=${LIBC:-"$(busybox find /lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)"}
-LIBC="/usr/lib/$(basename "$LIBC")"
+# busybox mkdir -p $FAKEDB
+# LIBC=$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)
+# LIBC=${LIBC:-"$(busybox find /lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)"}
+# LIBC="/usr/lib/$(basename "$(readlink -f "$LIBC")")"
 
 case "$1" in
 pre-commit)
@@ -20,14 +18,16 @@ pre-commit)
 	busybox unlink /sbin
 	busybox unlink /usr/sbin
 	busybox mkdir -p /bin /sbin /usr/sbin
+	busybox ln -s /usr/bin/busybox /bin/busybox
+	busybox --install -s /bin
 
-	busybox mkdir -p $FAKEDB/lib
-	for so in /usr/lib/*; do
-		busybox ln -s "/usr/lib/$(busybox basename "$so")" $FAKEDB/lib/
-	done
+	# busybox mkdir -p $FAKEDB/lib
+	# for so in /usr/lib/*; do
+	# 	busybox ln -s "/usr/lib/$(busybox basename "$so")" $FAKEDB/lib/
+	# done
 
-	busybox unlink /lib
-	$LIBC /usr/bin/busybox mv $FAKEDB/lib /lib
+	# busybox unlink /lib
+	# $LIBC /usr/bin/busybox mv $FAKEDB/lib /lib
 	;;
 post-commit)
 	for exe in /bin/* /sbin/* /usr/sbin/*; do
@@ -39,20 +39,28 @@ post-commit)
 	done
 
 	busybox rm -rf /bin /sbin /usr/sbin
-	busybox ln -s usr/bin /bin
+	/usr/bin/busybox ln -s usr/bin /bin
 	busybox ln -s usr/bin /sbin
 	busybox ln -s bin /usr/sbin
 
 	for so in /lib/*; do
-		[ -e "$so" ] || continue
 		so_bn=$(busybox basename "$so")
 		if [ -h "/usr/lib/$so_bn" ] || [ ! -e "/usr/lib/$so_bn" ]; then
-			busybox cp -a "$so" /usr/lib/
+			busybox cp -t /usr/lib/ -a "$so"
 		fi
 	done
 
-	busybox rm -rf /lib
-	$LIBC /usr/bin/busybox ln -s usr/lib /lib
+	LIBC=/usr/lib/$(basename "$(busybox readlink -f "$(busybox find /usr/lib/ -maxdepth 1 \( -type l -o -type f \) -iname "libc.*so*" | head -1)")")
+
+	for so in /usr/lib/*; do
+		so_bn=$(busybox basename "$so")
+		[ -e "/lib/$so_bn" ] && [ ! -h "/lib/$so_bn" ] || continue
+		$LIBC /usr/bin/busybox rm -rf "/lib/$so_bn"
+		$LIBC /usr/bin/busybox ln -s "$so" /lib/
+	done
+
+	# busybox rm -rf /lib
+	# $LIBC /usr/bin/busybox ln -s usr/lib /lib
 
 	busybox sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
 	;;

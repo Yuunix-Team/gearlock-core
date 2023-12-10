@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/usr/bin/busybox sh
+
+export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
 
 case "$1" in
-post-commit)
-	printf "\nimport /data/adb/gearlock%s\n" /etc/init/gearlock/*.rc > /etc/init/sources.rc
-	;;
+post-commit) busybox find /etc/init/gearlock -type f -exec printf "\nimport /data/adb/gearlock%s\n" {} + >/etc/init/sources.rc || : ;;
 esac
 
 exit 0
