@@ -81,8 +81,8 @@ android_entry() {
 
 	case "$MODE" in
 	ab) case "$system" in
-		system_a*) title="$title - System A" ;;
-		system_b*) title="$title - System B" ;;
+		system_\$PRIMARY*) title="$title - Primary image" ;;
+		system_\$SECONDARY*) title="$title - Secondary image" ;;
 		esac ;;
 	esac
 
@@ -124,7 +124,7 @@ android_entry() {
 	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
 		sed "s/^/$submenu_indentation/"
 
-	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"} ${GEARLOCK:+"GEARLOCK=$GEARLOCK"}"
+	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"} ${GEARLOCK:+"GEARLOCK=$GEARLOCK"} androidboot.slot_suffix=_\$PRIMARY SLOT=_\$PRIMARY"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
