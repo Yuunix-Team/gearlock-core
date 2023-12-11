@@ -24,13 +24,27 @@ mount_gearlock() {
 }
 
 switch_trigger() {
-	return 0
+	[ "$androidboot__slot_suffix" ] || return 0
+	case "$SYSTEM" in
+	${SYSTEM%_*}${androidboot__slot_suffix}*) return 0 ;;
+	esac
+
+	"$CHROOTCMD" abswitch
+	"$CHROOTCMD" rm /var/gearlock/initialized
+
+	case "$SYSTEM" in
+	*system.*) SYSTEM_TYPE=.${SYSTEM_TYPE##*.};;
+	esac
+
+	export SYSTEM=${SYSTEM%_*}${androidboot__slot_suffix}${SYSTEM_TYPE}
 }
 
 run_hook() {
 	GEARLOCK=${GEARLOCK:-gearlock.img}
 
 	mount_gearlock /gearlock /mnt
+
+	switch_trigger
 
 	"$CHROOTCMD" pre /usr/bin/run-gqueue
 	"$CHROOTCMD" pre /usr/bin/gearload
@@ -43,11 +57,11 @@ run_syshook() {
 }
 
 run_latehook() {
-	mount --bind "/gearlock/lib/modules" /android/system/lib/modules
-	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
-
-	[ -e "/gearlock/var/gearlock/initialized" ] ||
+	[ -e /gearlock/var/gearlock/initialized ] ||
 		"$CHROOTCMD" /usr/share/gearlock/first-interation.sh
+
+	mount --bind "/gearlock/lib/modules" /android/system/lib/module
+	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
 
 	# boot stage injection 
 	initrc=/android/system/etc/init/hw/init.rc
