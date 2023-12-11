@@ -81,8 +81,8 @@ android_entry() {
 
 	case "$MODE" in
 	ab) case "$system" in
-		system_\$PRIMARY*) title="$title - Primary image" ;;
-		system_\$SECONDARY*) title="$title - Secondary image" ;;
+		system_\$PRIMARY*) title="$title - System \$PRIMARY" ;;
+		system_\$SECONDARY*) title="$title - System \$SECONDARY" ;;
 		esac ;;
 	esac
 
@@ -90,13 +90,9 @@ android_entry() {
 	if [ "$type" != "default" ]; then
 		title="$title, with ${kernel#*-}"
 		case "$type" in
-		freshboot)
-			title="$title - Freshboot"
-			cmdline="$cmdline MODE=freshboot"
-			;;
-		recovery)
-			title="$title - Recovery"
-			cmdline="$cmdline MODE=recovery"
+		freshboot | recovery)
+			title="$title - $(echo "${type:0:1}" | tr a-z A-Z)${type:1}"
+			cmdline="$cmdline MODE=$type"
 			;;
 		esac
 	fi
@@ -124,7 +120,7 @@ android_entry() {
 	printf '%s\n' "$(prepare_grub_to_access_device "$BOOT_DEVICE" | grub_add_tab)" |
 		sed "s/^/$submenu_indentation/"
 
-	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"} ${GEARLOCK:+"GEARLOCK=$GEARLOCK"} androidboot.slot_suffix=_\$PRIMARY SLOT=_\$PRIMARY"
+	sub_indent "	linux $kernel $cmdline root=/dev/ram0 ${ROOT:+"ROOT=$ROOT"} ${SRC:+"SRC=$SRC"} ${system:+"SYSTEM=$system"} ${DATA:+"DATA=$DATA"} ${GEARLOCK:+"GEARLOCK=$GEARLOCK"} androidboot.slot_suffix=_\$PRIMARY"
 	sub_indent "	initrd $initrd"
 
 	sub_indent "}\n"
@@ -280,7 +276,7 @@ b) PRIMARY=b SECONDARY=a ;;
 esac
 "
 	[ "$SYSTEM_TYPE" != dir ] && COMP=.$SYSTEM_TYPE
-	for i in PRIMARY SECONDARY; do gen_menuentry "system_\$$i${COMP}"; done
+	for i in PRIMARY SECONDARY; do gen_menuentry "${SYSTEM%_*}_\$$i${COMP}"; done
 	;;
 *) gen_menuentry "$SYSTEM" ;;
 esac

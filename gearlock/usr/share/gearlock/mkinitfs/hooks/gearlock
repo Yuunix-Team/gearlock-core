@@ -23,6 +23,10 @@ mount_gearlock() {
 	mountpoint -q "$2" && mount --bind "$2" "$1"/gearroot
 }
 
+switch_trigger() {
+	return 0
+}
+
 run_hook() {
 	GEARLOCK=${GEARLOCK:-gearlock.img}
 

@@ -217,6 +217,12 @@ echo 0 >/proc/sys/kernel/printk
 # read the kernel options. we need surve things like:
 #  acpi_osi="!Windows 2006" xen-pciback.hide=(01:00.0)
 set -- $(cat /proc/cmdline)
+for arg in "$@"; do
+	case "$arg" in
+	*.*=*) eval "export $(echo "${arg%%=*}" | sed 's/\./__/g')=${arg#*=}" ;;
+	*=*) eval "export $arg" ;;
+	esac
+done
 
 . /config
 
