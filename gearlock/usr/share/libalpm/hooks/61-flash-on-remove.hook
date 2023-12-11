@@ -1,0 +1,10 @@
+[Trigger]
+Type = Path
+Operation = Remove
+Target = usr/share/gearlock/extensions/*
+
+[Action]
+Description = Updating modules...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/mkinitfs regen
+NeedsTargets

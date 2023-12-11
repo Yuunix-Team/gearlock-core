@@ -1,0 +1,12 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = etc/init/gearlock/*
+
+[Action]
+Description = Updating modules...
+When = PostTransaction
+Exec = /usr/share/libalpm/scripts/rc-regen
+NeedsTargets
