@@ -2,7 +2,7 @@
 
 set -e
 
-install_kernel() { mkinitfs -k "$1";}
+install_kernel() { mkinitfs -k "$(basename "$1")";}
 
 remove_kernel() {
 	filelist=("/boot/vmlinuz-${1}"
@@ -24,3 +24,5 @@ while read -r line; do
 	remove) remove_kernel "$(dirname "$line")" ;;
 	esac
 done
+
+[ "$1" = regen ] && mkinitfs -a

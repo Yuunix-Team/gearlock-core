@@ -29,6 +29,11 @@ install="$pkgname.post-install"
 
 provides="initramfs-generator mkinitfs"
 provider_priority=900 # highest
+triggers="
+	90_mkinitfs.trigger=/lib/firmware:/usr/lib/firmware:/lib/modules/*:/usr/lib/modules/*
+	91_flash-on-install.trigger=/usr/share/gearlock/extensions/*
+	92_inject-import-regen.trigger=/etc/init/gearlock
+	"
 
 build() {
 	git submodule update --init
