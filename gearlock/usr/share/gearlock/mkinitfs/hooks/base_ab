@@ -1,0 +1,139 @@
+#!/bin/sh
+
+real_path() {
+	case "$1" in
+	/*) echo "$1" ;;
+	*) echo "/mnt/$SRC/$1" ;;
+	esac
+}
+
+gen_img() {
+	if [ "$fs" = "vfat" ]; then
+		(dd bs=1M count=$1 if=/dev/zero | pv -ns $1m | dd of=$2) 2>&1 |
+			progress_bar "Creating $(basename "$2")" "Expect to write $1 MB..."
+	else
+		dd if=/dev/zero bs=1 count=0 seek=$1M of=$2
+	fi
+}
+
+resize_img() {
+	existing_file=$(real_path "$1")
+	reference_file=$(real_path "$2")
+
+	# Check if the file exists
+	if [ ! -f "$existing_file" ]; then
+		return 1
+	fi
+	if [ ! -f "$reference_file" ]; then
+		return 1
+	fi
+
+	# Get the current size of the file
+	final_size=$(wc -c <"$reference_file")
+	current_size=$(wc -c <"$existing_file")
+
+	# Calculate the remaining size to reach the final size
+	remaining_size=$((final_size - current_size))
+
+	if [ $remaining_size -le 0 ]; then
+		return 0
+	fi
+
+	# Calculate the number of 1MB blocks to append
+	blocks_to_append=$((remaining_size / 1048576))
+
+	# Append /dev/zero using bs=1M
+	dd if=/dev/zero bs=1M count=$blocks_to_append >>"$existing_file"
+
+	# Calculate the remaining size after appending 1MB blocks
+	remaining_size=$((remaining_size - (blocks_to_append * 1048576)))
+
+	# Append the remaining bytes using bs=1
+	if [ $remaining_size -gt 0 ]; then
+		dd if=/dev/zero bs=1 count=$remaining_size >>"$existing_file"
+	fi
+}
+
+setup_loop() {
+	for i in $(seq 0 9); do
+		losetup "/dev/loop$i" >/dev/null 2>&1 && continue
+		losetup "/dev/loop$i" "$(real_path "$1")" >/dev/null 2>&1 || continue
+		local dev="/dev/block/loop$i"
+
+		ln -s "/dev/loop$i" "$dev"
+		echo "$dev"
+
+		return 0
+	done
+}
+
+mount_grub() {
+	mountpoint -q /android/grub && return
+
+	mount -a
+
+	if ! mountpoint -q /boot; then
+		BOOT_PART=/mnt/boot
+		[ -d "$BOOT_PART" ] || BOOT_PART=/mnt/$SRC/boot
+		mount --bind "$BOOT_PART" /boot
+	fi
+
+	GRUBDIR="/boot/grub"
+	if [ "$androidboot__efidisk" ]; then
+		case "$androidboot__efidisk" in
+		/dev/*) ;;
+		*) androidboot__efidisk=/dev/block/$androidboot__efidisk ;;
+		esac
+		mount "$androidboot__efidisk" /boot/efi
+
+		[ "$androidboot__efidir" ] &&
+			GRUBDIR="/boot/efi/$androidboot__efidir"
+	fi
+
+	mount --bind "$GRUBDIR" /android/grub
+}
+
+setup_ab_loops() {
+	[ "$androidboot__slot_suffix" ] || return 0
+
+	case "$androidboot__slot_suffix" in
+	_a) secondary_slot=_b ;;
+	_b) secondary_slot=_a ;;
+	esac
+
+	case "$SYSTEM" in
+	*system.*) SYSTEM_TYPE=.${SYSTEM##*.} ;;
+	esac
+
+	ln -s "$(setup_loop "${SYSTEM%_*}${secondary_slot}${SYSTEM_TYPE}")" \
+		"/dev/block/by-name/system$secondary_slot"
+
+	ln -s "$(setup_loop "$BOOT_IMAGE")" \
+		"/dev/block/by-name/kernel$androidboot__slot_suffix"
+
+	ln -s "$(setup_loop "${BOOT_IMAGE//vmlinuz-/initrd-}.img")" \
+		"/dev/block/by-name/initrd$androidboot__slot_suffix"
+
+	if [ ! -f "/boot/kernel" ]; then
+		gen_img 40 "/boot/kernel"
+		resize_img "$BOOT_IMAGE" "/boot/kernel"
+	fi
+	ln -s "$(setup_loop "/boot/kernel")" \
+		"/dev/block/by-name/kernel$secondary_slot"
+
+	if [ ! -f "/boot/initrd.img" ]; then
+		gen_img 40 "/boot/initrd.img"
+		resize_img "${BOOT_IMAGE//vmlinuz-/initrd-}.img" "/boot/initrd.img"
+	fi
+	ln -s "$(setup_loop "/boot/initrd.img")" \
+		"/dev/block/by-name/initrd$secondary_slot"
+
+	[ -f "/boot/misc.img" ] || gen_img 10 "/boot/misc.img"
+	ln -s "$(setup_loop "/boot/misc.img")" /dev/block/by-name/misc
+}
+
+run_latehook() {
+	mount_grub
+	setup_ab_loops
+	return 0
+}

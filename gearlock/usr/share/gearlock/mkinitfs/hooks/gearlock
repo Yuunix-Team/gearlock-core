@@ -33,10 +33,11 @@ switch_trigger() {
 	"$CHROOTCMD" rm /var/gearlock/initialized
 
 	case "$SYSTEM" in
-	*system.*) SYSTEM_TYPE=.${SYSTEM_TYPE##*.};;
+	*system.*) SYSTEM_TYPE=.${SYSTEM##*.};;
 	esac
 
-	export SYSTEM=${SYSTEM%_*}${androidboot__slot_suffix}${SYSTEM_TYPE}
+	SYSTEM=${SYSTEM%_*}${androidboot__slot_suffix}${SYSTEM_TYPE}
+	export SYSTEM
 }
 
 run_hook() {
