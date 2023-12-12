@@ -40,12 +40,12 @@ fld_size() { du -sk "/system/lib/$1" | awk '{print $1}'; }
 bindpkg() {
 	TYPE=$1
 	mkdir -p "$TMPDIR/usr/lib/$TYPE"
-	cp -t "$TMPDIR/$(dirname "usr/lib/$TYPE")" -a "system/lib/$TYPE"
+	cp -t "$TMPDIR/$(dirname "usr/lib/$TYPE")" -a "/system/lib/$TYPE"
 
 	case "$TYPE" in
 	modules/*) for kernel in "$@"; do
 		shift
-		[ -f "$kernel" ] && cp "/boot/$kernel" "$TMPDIR/usr/lib/$1/kernel" && break
+		[ -f "/boot/$kernel" ] && cp "/boot/$kernel" "$TMPDIR/usr/lib/$TYPE/vmlinuz" && break
 	done ;;
 	esac
 

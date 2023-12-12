@@ -61,9 +61,9 @@ android.armLayer() {
 	local arm=None
 	if [[ "$ARCH" = "aarch"* ]] || [[ "$ARCH" = "arm"* ]]; then
 		arm=Native
-	elif [ -e /system/lib/libhoudini.so ]; then
+	elif [ -e /system/lib/libhoudini.so ] || [ -e /vendor/lib/libhoudini.so ]; then
 		arm=LibHoudini
-	elif [ -e /system/lib/libndk_translation.so ]; then
+	elif [ -e /system/lib/libndk_translation.so ] || [ -e /vendor/lib/libndk_translation.so ]; then
 		arm=LibNDK
 	fi
 	printf "%s" "$arm"

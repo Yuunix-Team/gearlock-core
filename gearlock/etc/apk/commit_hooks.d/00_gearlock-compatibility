@@ -18,7 +18,9 @@ pre-commit)
 	busybox unlink /sbin
 	busybox unlink /usr/sbin
 	busybox mkdir -p /bin /sbin /usr/sbin
-	busybox ln -s /usr/bin/busybox /bin/busybox
+	busybox ln -s /usr/bin/busybox /bin
+	busybox ln -s /usr/bin/bash /bin
+	busybox ln -s /usr/bin/env /bin
 	busybox --install -s /bin
 
 	# busybox mkdir -p $FAKEDB/lib

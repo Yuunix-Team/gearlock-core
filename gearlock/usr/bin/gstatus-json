@@ -1,10 +1,8 @@
 #!/bin/sh
 
 OLD_PATH=$PATH
-OLD_LD=$LD_LIBRARY_PATH
 
 export PATH="/data/adb/gearlock/bin/:$PATH"
-export LD_LIBRARY_PATH="/data/adb/gearlock/lib/:${LD_LIBRARY_PATH:-/system/lib:/lib}"
 
 for src in /etc/os-release /etc/lsb-release /usr/lib/lsb-release; do
 	[ -e "$src" ] && . "$src" && break
@@ -15,7 +13,7 @@ BOOTED=$(getprop sys.boot_completed)
 cpuArch="$(busybox arch)"
 
 if command -v su; then
-	if grep -q ksu /system/lib/modules/"$(uname -r)"/modules.builtin; then
+	if modinfo ksu >/dev/null 2>&1 || grep -q ksu /system/lib/modules/"$(uname -r)"/modules.builtin; then
 		suHandler="KernelSU"
 	elif [ -e "/sbin/magisk" ]; then
 		suHandler="Magisk"
@@ -123,4 +121,3 @@ echo "
 }"
 
 export PATH="$OLD_PATH"
-export LD_LIBRARY_PATH="$OLD_LD"
