@@ -25,14 +25,14 @@ case "$IN" in
 	;;
 *.tar.*)
 	case "$IN" in
-	*.br) : brotli ;;
-	*.lz) : lzip ;;
-	*.lzo) : lzop ;;
-	*.lz4) : lz4 ;;
-	*.zst) : zstd ;;
+	*.br) COMD=brotli ;;
+	*.lz) COMD=lzip ;;
+	*.lzo) COMD=lzop ;;
+	*.lz4) COMD=lz4 ;;
+	*.zst) COMD=zstd ;;
 	*) quit ;;
 	esac
-	$_ -dc <"$IN" | tar ${OUT:+-C "$OUT"} -xf - $FILES
+	$COMD -dc <"$IN" | tar ${OUT:+-C "$OUT"} -xf - $FILES
 	;;
 *.7z)
 	[ "$FILES" ] && m=e || m=x

@@ -24,14 +24,13 @@ tar) tar -cf "$OUT" "$IN" ;;
 zip) zip "$OUT" "$IN" ;;
 *)
 	case "$COMP" in
-	[gl]z | bz2) : "${COMP//z/zip}" ;;
-	br) : brotli ;;
-	lzo) : lzop ;;
-	[lx]z*) : "$COMP" ;;
-	zst) : zstd ;;
+	[gl]z | bz2) COMD="${COMP//z/zip}" ;;
+	br) COMD=brotli ;;
+	lzo) COMD=lzop ;;
+	[lx]z*) COMD="$COMP" ;;
+	zst) COMD=zstd ;;
 	*) quit ;;
 	esac
-	COMD=$_
 	tar -cf - "$IN" | $COMD >"$OUT"
 	;;
 esac
