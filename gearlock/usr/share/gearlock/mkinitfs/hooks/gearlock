@@ -55,6 +55,15 @@ run_hook() {
 
 run_syshook() {
 	mount -t overlay overlay /android -o lowerdir=/gearlock/var/gearlock/overlay:/android
+
+	[ -f /scripts/bliss_features ] || return 0
+
+	overlib=/gearlock/var/gearlock/overlay/system/lib
+	mkdir -p "$overlib"
+
+	auto_ln() { [ -h "$overlib/$1" ] || ln -s "/vendor/$1" "$overlib/"; }
+	auto_ln modules
+	auto_ln firmware
 }
 
 run_latehook() {

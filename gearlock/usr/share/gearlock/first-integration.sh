@@ -36,7 +36,7 @@ for ver in $buildver; do
 done
 unset IFS
 
-fld_size() { du -sk "/system/lib/$1" | awk '{print $1}'; }
+fld_size() { du -sk "/system/lib/$1/" | awk '{print $1}'; }
 bindpkg() {
 	TYPE=$1
 	mkdir -p "$TMPDIR/usr/lib/$TYPE"
@@ -60,7 +60,7 @@ install:
 
 export -f bindpkg
 
-if [ "$(ls -A /system/lib/modules)" ]; then
+if [ "$(ls -A /system/lib/modules/)" ]; then
 	move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
 	export -f move
 	kernel=$(basename /system/lib/modules/*)
@@ -76,7 +76,7 @@ if [ "$(ls -A /system/lib/modules)" ]; then
 		-B "$MAKEFILE"
 fi
 
-if [ "$(ls -A /system/lib/firmware)" ]; then
+if [ "$(ls -A /system/lib/firmware/)" ]; then
 	move() { bindpkg firmware; }
 	export -f move
 	"$GEARLIB"/makepkg/genbuild \
