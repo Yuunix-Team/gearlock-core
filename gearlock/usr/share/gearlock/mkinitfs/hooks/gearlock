@@ -33,7 +33,7 @@ switch_trigger() {
 	"$CHROOTCMD" rm /var/gearlock/initialized
 
 	case "$SYSTEM" in
-	*system.*) SYSTEM_TYPE=.${SYSTEM##*.};;
+	*system.*) SYSTEM_TYPE=.${SYSTEM##*.} ;;
 	esac
 
 	SYSTEM=${SYSTEM%_*}${androidboot__slot_suffix}${SYSTEM_TYPE}
@@ -54,14 +54,16 @@ run_hook() {
 }
 
 run_syshook() {
+	# as modern x86 kernels support overlay so we don't need magic mount
 	mount -t overlay overlay /android -o lowerdir=/gearlock/var/gearlock/overlay:/android
 
 	[ -f /scripts/bliss_features ] || return 0
 
+	# future bliss os versions store firmware and kernel modules inside /vendor so we must map it back for compatibility
 	overlib=/gearlock/var/gearlock/overlay/system/lib
 	mkdir -p "$overlib"
 
-	auto_ln() { [ -h "$overlib/$1" ] || ln -s "/vendor/$1" "$overlib/"; }
+	auto_ln() { [ -e "/android/system/lib/$1" ] || [ -h "$overlib/$1" ] || ln -s "/vendor/$1" "$overlib/"; }
 	auto_ln modules
 	auto_ln firmware
 }
@@ -70,19 +72,26 @@ run_latehook() {
 	[ -e /gearlock/var/gearlock/initialized ] ||
 		"$CHROOTCMD" /usr/share/gearlock/first-interation.sh
 
-	mount --bind "/gearlock/lib/modules" /android/system/lib/module
-	mount --bind "/gearlock/lib/firmware" /android/system/lib/firmware
+	bind_dir() {
+		local target
+		target=/android/system/lib/$1
+		[ -f /scripts/bliss_features ] &&
+			[ -d "/android/vendor/$1" ] &&
+			target=/android/vendor/$1
+		mount --bind "/gearlock/lib/$1" "$target"
+	}
 
-	# boot stage injection 
+	bind_dir modules
+	bind_dir firmware
+
+	# boot stage injection
 	initrc=/android/system/etc/init/hw/init.rc
-	new_initrc=/gearlock/var/gearlock/init.rc
+	new_initrc=/gearlock/var/gearlock/overlay${initrc#"/android"}
 	[ -f "$new_initrc" ] ||
-	sed -r 's|(^import /init.\$\{ro.hardware\}.rc)|\1\nimport /data/adb/gearlock/etc/init/sources.rc|' "$initrc" > "$new_initrc"
-	mount --bind "$new_initrc" "$initrc"
+		sed -r 's|(^import /init.\$\{ro.hardware\}.rc)|\1\nimport /data/adb/gearlock/etc/init/sources.rc|' "$initrc" >"$new_initrc"
 
 	# move mountpoint
 	target_mnt=/android/data/adb/gearlock
 	[ -e "$target_mnt" ] || mkdir -p "$target_mnt"
 	mount --bind /gearlock "$target_mnt"
 }
-
