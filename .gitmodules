@@ -16,3 +16,6 @@
 [submodule "integrations/gearlock-kernel-pkg"]
 	path = integrations/gearlock-kernel-pkg
 	url = https://github.com/axonasif/gearlock-kernel-pkg
+[submodule "integrations/mdev-conf"]
+	path = integrations/mdev-conf
+	url = https://gitlab.alpinelinux.org/alpine/mdev-conf.git
