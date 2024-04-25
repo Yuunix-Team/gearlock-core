@@ -1,0 +1,9 @@
+#!/bin/bash
+
+install_hook() {
+  # adds custom init, fstab
+  # reads config from misc
+  # replaces base_ab and device_mapping
+  # uses base,lvm
+  add_runscript
+}

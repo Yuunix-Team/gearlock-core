@@ -35,7 +35,7 @@ export PATH=/usr/bin:/system/bin:/system/xbin
 find_mnt() {
 	local dev="$1"
 	case "$dev" in
-	UUID=* | LABEL=*) dev=$(findfs "$dev") ;;
+	*UUID=* | *LABEL=*) dev=$(findfs "$dev") ;;
 	# ZFS=*)
 	# 	ROOTFSTYPE=zfs
 	# 	modprobe -a zfs
@@ -219,8 +219,8 @@ echo 0 >/proc/sys/kernel/printk
 set -- $(cat /proc/cmdline)
 for arg in "$@"; do
 	case "$arg" in
-	*.*=*) eval "export $(echo "${arg%%=*}" | sed 's/\./__/g')=${arg#*=}" ;;
-	*=*) eval "export $arg" ;;
+	*.*=*) eval "export $(echo "${arg%%=*}" | sed 's/\./__/g')='${arg#*=}'" ;;
+	*=*) eval "export ${arg%%=*}='${arg#*=}'" ;;
 	esac
 done
 
@@ -277,7 +277,7 @@ mnt_mount() {
 
 system_mount_handler() {
 	case "$SYSTEM" in
-	/dev/* | UUID=* | LABEL=*)
+	/dev/* | *UUID=* | *LABEL=*)
 		SYSTEM=$(find_mnt "$SYSTEM")
 		SYSTEMFS=${SYSTEMFS:-$(fs_type "$SYSTEM")}
 		case "$SYSTEMFS" in
@@ -315,7 +315,7 @@ data_mount_handler() {
 	fi
 
 	case "$DATA" in
-	/dev/* | UUID=* | LABEL=*)
+	/dev/* | *UUID=* | *LABEL=*)
 		DATA=$(find_mnt "$DATA")
 		DATAFS=${DATAFS:-$(fs_type "$DATA")}
 		mount -t "$DATAFS" ${DATAFLAGS:-"-o $DATAFLAGS"} "$DATA" data || data_fallback

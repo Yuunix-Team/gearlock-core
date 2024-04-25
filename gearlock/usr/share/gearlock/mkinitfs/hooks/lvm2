@@ -1,1 +1,5 @@
 #!/bin/sh
+
+run_hook() {
+  lvm vgchange -ay
+}

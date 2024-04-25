@@ -96,22 +96,36 @@ mount_grub() {
 setup_ab_loops() {
 	[ "$androidboot__slot_suffix" ] || return 0
 
+	local current_suffix=$SYSTEM
+	SYSTEM=/dev/block/by-name/system$androidboot__slot_suffix
+
+	[ -b "$SYSTEM" ] && return 0
+
+	case "$current_suffix" in
+	/dev/* | *UUID=* | *LABEL=*) current_suffix=$(find_mnt "$current_suffix") ;;
+	*.img) current_suffix="/mnt/$SRC/$SYSTEM" ;;
+	*) echo "[WARN] System image type does not support AB mode!" && return 0 ;;
+	esac
+	ln -s "$current_suffix" "$SYSTEM"
+
 	case "$androidboot__slot_suffix" in
 	_a) secondary_slot=_b ;;
 	_b) secondary_slot=_a ;;
 	esac
 
-	case "$SYSTEM" in
-	*system.*) SYSTEM_TYPE=.${SYSTEM##*.} ;;
+	case "$current_suffix" in
+	*system.*) SYSTEM_TYPE=.${current_suffix##*.} ;;
 	esac
 
-	ln -s "$(setup_loop "${SYSTEM%_*}${secondary_slot}${SYSTEM_TYPE}")" \
-		"/dev/block/by-name/system$secondary_slot"
+	ln -s "$(setup_loop "${current_suffix%_*}${secondary_slot}${SYSTEM_TYPE}")" \
+		"${SYSTEM%_*}$secondary_slot"
+
+	grep -w virtoem /proc/cmdline && return 0
 
 	ln -s "$(setup_loop "$BOOT_IMAGE")" \
 		"/dev/block/by-name/kernel$androidboot__slot_suffix"
 
-	ln -s "$(setup_loop "${BOOT_IMAGE//vmlinuz-/initrd-}.img")" \
+	ln -s "$(setup_loop "${BOOT_IMAGE//kernel-/initrd-}.img")" \
 		"/dev/block/by-name/initrd$androidboot__slot_suffix"
 
 	if [ ! -f "/boot/kernel" ]; then
@@ -132,8 +146,11 @@ setup_ab_loops() {
 	ln -s "$(setup_loop "/boot/misc.img")" /dev/block/by-name/misc
 }
 
+run_syshook() {
+	setup_ab_loops
+}
+
 run_latehook() {
 	mount_grub
-	setup_ab_loops
 	return 0
 }

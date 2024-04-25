@@ -253,7 +253,7 @@ add_module() {
 			done
 			;;
 		esac
-	done < <(modinfo -b "$basedir" -k "$kver" -0 "$target" 2>/dev/null)
+	done < <(modinfo -b "$basedir/usr" -k "$kver" -0 "$target" 2>/dev/null)
 
 	if ((!found)); then
 		((ign_errors || _addedmodules["$target"])) && return 0
@@ -437,6 +437,7 @@ add_runscript() {
 	done
 }
 
+# shellcheck disable=SC2317
 add_binary() {
 	# Add a binary file to the initcpio image. library dependencies will
 	# be discovered and added.
@@ -490,6 +491,14 @@ add_binary() {
 			((++_builderrors))
 			continue
 		fi
+
+		case "$sodep" in
+		/lib/*)
+			realsodep=$(readlink -f "$sodep")
+			[ "$(basename "$sodep")" = "$(basename "$realsodep")" ] &&
+				sodep=$realsodep
+			;;
+		esac
 
 		if [[ -f "$sodep" && ! -e "${tmpdir}${sodep}" ]]; then
 			add_file "$sodep" "$sodep"
@@ -714,7 +723,7 @@ find_module_from_symbol() {
 	local moduledir symbols="$1" directories=("${@:2}")
 	for dir in "${directories[@]}"; do
 		case "${dir::1}" in
-		=) moduledir="/lib/modules/$kver/kernel/${dir:1}" ;;
+		=) moduledir="/usr/lib/modules/$kver/kernel/${dir:1}" ;;
 		/*) moduledir="$dir" ;;
 		esac
 
@@ -741,6 +750,7 @@ add_module_from_symbol() {
 	mapfile -t mods < <(find_module_from_symbol "$@")
 	map add_module "${mods[@]}"
 }
+
 initfs_base() {
 	local i='' glob='' file=''
 	install -dm755 "$tmpdir"/{android,apex,hd,iso,proc,sys,dev,tmp,var,etc,usr/{lib/{modules,firmware},bin},sfs,mnt,hooks}
@@ -808,7 +818,7 @@ initfs_cpscripts() {
 		((${#add[*]})) && printf 'MODULES="%s"\n' "${add[*]}"
 
 		printf '%s="%s"\n' \
-			'EARLYHOOKS' "${_runhooks['hooks']# }" \
+			'EARLYHOOKS' "${_runhooks['early']# }" \
 			'SYSHOOKS' "${_runhooks['sysmount']# }" \
 			'LATEHOOKS' "${_runhooks['late']# }"
 	} >"$tmpdir/config"
@@ -826,7 +836,7 @@ initfs_cpscripts() {
 }
 
 # find_kmod_deps() {
-# 	awk -v prepend="/lib/modules/$kernel/" -v modulesdep="${basedir}lib/modules/$kernel/modules.dep" '
+# 	awk -v prepend="/lib/modules/$kernel/" -v modulesdep="${basedir}usr/lib/modules/$kernel/modules.dep" '
 # function recursedeps(k,		j, dep) {
 # 	if (k in visited)
 # 		return;
@@ -1010,9 +1020,9 @@ basedir="${basedir%/}/"
 [[ -e /dev/fd ]] || die "/dev must be mounted!"
 
 # if [ -z "$nokernel" ]; then
-[ "$all" ] && kernels=("${basedir}lib/modules"/*) || kernels=("${basedir}lib/modules/${kver:-"$(uname -r)"}")
+[ "$all" ] && kernels=("${basedir}usr/lib/modules"/*) || kernels=("${basedir}usr/lib/modules/${kver:-"$(uname -r)"}")
 
-firmwaredir="${basedir}lib/firmware"
+firmwaredir="${basedir}usr/lib/firmware"
 
 for kerneldir in "${kernels[@]}"; do
 	kver=$(basename "$kerneldir")
@@ -1031,7 +1041,7 @@ for kerneldir in "${kernels[@]}"; do
 		break
 	fi
 
-	mv "$bootfile" ${basedir}boot/kernel-${kver}
+	cp "$bootfile" ${basedir}boot/kernel-${kver}
 
 	default_out=${basedir}boot/initrd-${kver}.img
 	[ "$all" ] && outfile=$default_out || outfile=${outfile:-$default_out}

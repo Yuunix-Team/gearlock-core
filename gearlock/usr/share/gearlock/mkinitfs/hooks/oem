@@ -1,0 +1,10 @@
+#!/bin/sh
+
+run_hook() {
+  grep -w virtoem /proc/cmdline || return 0
+  
+  # SYSTEM=/dev/block/by-name/system_$androidboot__slot_suffix
+  # DATA=/dev/block/by-name/userdata
+
+  # export SYSTEM DATA
+}

@@ -6,7 +6,7 @@ mount_gearlock() {
 	mkdir -p "$1"
 
 	case "$GEARLOCK" in
-	/dev/* | UUID=* | LABEL=*)
+	/dev/* | *UUID=* | *LABEL=*)
 		GEARLOCK=$(find_mnt "$GEARLOCK")
 		GEARLOCKFS=$(fs_type "$GEARLOCK")
 		mount -t "$GEARLOCKFS" "$GEARLOCK" "$1" || return 1

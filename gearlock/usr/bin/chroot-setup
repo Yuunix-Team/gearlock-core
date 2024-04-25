@@ -15,7 +15,7 @@ chroot_if_dir() { [ -d "$1" ] && shift && chroot_add_mount $@ || true; }
 chroot_teardown() {
 	[ "$(ls "$1"/tmp/session_* 2>/dev/null | wc -l)" = 1 ] &&
 		umount $(mount | grep "on ${CHROOTDIR%/}/" | awk '{print $3}' | tac | xargs)
-	[ -f "$1/tmp/session_$i" ] && rm "$1/tmp/session_$SESSION"
+	[ -f "$1/tmp/session_$SESSION" ] && rm "$1/tmp/session_$SESSION"
 }
 
 chroot_session() {
@@ -26,9 +26,11 @@ chroot_session() {
 }
 
 chroot_setup() {
+	ls "$1/tmp/session_"* > /dev/null 2>&1 && return 0
+
 	TG=$1
-	rbind_map() { chroot_add_mount "/$1" "$TG/$1" --rbind; }
-	rbind_ifdir() { chroot_if_dir "$1" "$1" "$TG/$1" --rbind; }
+	rbind_map() { chroot_add_mount "$1" "$TG$1" --rbind; }
+	rbind_ifdir() { chroot_if_dir "$1" "$1" "$TG$1" --rbind; }
 
 	indir_map_data() {
 		chroot_add_mount "/data" "$TG/data" --bind

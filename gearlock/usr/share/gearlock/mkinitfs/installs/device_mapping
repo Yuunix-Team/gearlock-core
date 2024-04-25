@@ -1,0 +1,8 @@
+#!/bin/bash
+
+install_hook() {
+  add_full_dir /lib/mdev
+  add_file /etc/mdev.conf
+  add_file "$GEARDATA/mkinitfs/passwd" "/etc/passwd"
+  add_file "$GEARDATA/mkinitfs/group" "/etc/group"
+}

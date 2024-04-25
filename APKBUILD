@@ -23,6 +23,7 @@ depends="
 	mdev-conf
 	abuild
 	apk-tools
+	util-linux-misc
 	"
 # subpackages="$pkgname-doc"
 install="$pkgname.post-install"

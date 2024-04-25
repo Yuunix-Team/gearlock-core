@@ -17,6 +17,8 @@ pre-commit)
 	busybox unlink /bin
 	busybox unlink /sbin
 	busybox unlink /usr/sbin
+	busybox unlink /lib/modules
+	busybox unlink /lib/firmware
 	busybox mkdir -p /bin /sbin /usr/sbin
 	busybox ln -s /usr/bin/busybox /bin
 	busybox ln -s /usr/bin/bash /bin
@@ -64,7 +66,17 @@ post-commit)
 	# busybox rm -rf /lib
 	# $LIBC /usr/bin/busybox ln -s usr/lib /lib
 
+	busybox ln -s /usr/lib/modules /lib
+	busybox ln -s /usr/lib/firmware /lib
+
+	# shellcheck disable=SC2016
 	busybox sed -i 's|GRUB_DEVICE="`${grub_probe} --target=device /`"|GRUB_DEVICE="`${grub_probe} --target=device "$ROOT"`"|g' /usr/bin/grub-mkconfig
+
+	# shellcheck disable=SC3009
+	for applet in {dep,ins,rm,ls}mod mod{probe,info}; do
+		busbybox rm -f "/usr/bin/$applet"
+		busybox ln -s kmod "/usr/bin/$applet"
+	done
 	;;
 esac
 

@@ -4,6 +4,8 @@ export PATH=/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
 
 [ -e /var/gearlock/initialized ] && exit 0
 
+echo "[INIT] First initialization."
+
 ARCH=$(busybox arch)
 BUILDPROP=/system/build.prop
 
@@ -43,10 +45,13 @@ bindpkg() {
 	cp -t "$TMPDIR/$(dirname "usr/lib/$TYPE")" -a "/system/lib/$TYPE"
 
 	case "$TYPE" in
-	modules/*) for kernel in "$@"; do
+	modules/*)
 		shift
-		[ -f "/boot/$kernel" ] && cp "/boot/$kernel" "$TMPDIR/usr/lib/$TYPE/vmlinuz" && break
-	done ;;
+		echo "$TMPDIR/usr/lib/$TYPE/vmlinuz"
+		for kernel in "$@"; do
+			[ -f "/boot/$kernel" ] && cp "/boot/$kernel" "$TMPDIR/usr/lib/$TYPE/vmlinuz" && break
+		done
+		;;
 	esac
 
 	MAKEFILE="
@@ -61,9 +66,10 @@ install:
 export -f bindpkg
 
 if [ "$(ls -A /system/lib/modules/)" ]; then
-	move() { bindpkg modules/"$kernel" "kernel-su" "kernel"; }
-	export -f move
 	kernel=$(basename /system/lib/modules/*)
+	export kernel
+	move() { bindpkg modules/"$kernel" "kernel" "kernel-su" ; }
+	export -f move
 	"$GEARLIB"/makepkg/genbuild \
 		-A "$ARCH" \
 		-D "Linux kernel $kernel - $OS" \

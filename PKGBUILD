@@ -11,7 +11,7 @@ arch=('any')
 license=("GPL-2.0-only")
 # currently we do not ship any testsuite
 # options="!check"
-depends=('busybox' 'bash' 'gnupg' 'kmod' 'pacman')
+depends=('busybox' 'bash' 'gnupg' 'kmod' 'pacman' 'udev')
 makedepends=('bash' 'busybox' 'git')
 [ "${DEBUG#0}" ] || makedepends+=('shfmt')
 install="$pkgname.install"
